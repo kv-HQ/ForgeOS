@@ -2053,7 +2053,7 @@ elif page == "Submissions":
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
     if st.session_state.submissions:
-        tb1, tb2, tb3, tb4, tb5 = st.columns([3, 1.5, 1.5, 1.2, 1.8])
+        tb1, tb2, tb3, tb4, tb5, tb6 = st.columns([3, 1.5, 1.5, 1.2, 1.1, 1.8])
         with tb1:
             search_q = st.text_input("search", placeholder="Search by name or ID…", label_visibility="collapsed")
         with tb2:
@@ -2063,6 +2063,17 @@ elif page == "Submissions":
         with tb4:
             f_sort   = st.selectbox("sort", ["Newest","Score ↓","Score ↑","Name"], label_visibility="collapsed")
         with tb5:
+            bulk_concurrency = st.number_input(
+                "concurrency",
+                min_value=1,
+                max_value=10,
+                value=st.session_state.get("bulk_concurrency", 5),
+                step=1,
+                label_visibility="collapsed",
+                help="Number of submissions scored simultaneously. Higher = faster, but raises rate-limit risk with Real LLM mode.",
+                key="bulk_concurrency",
+            )
+        with tb6:
             run_bulk = st.button("🤖  Process All with AI", use_container_width=True)
 
         if run_bulk:
@@ -2077,8 +2088,9 @@ elif page == "Submissions":
                 snap_model = _FORGE_LLM_MODEL
                 rubric_snap = rubric   # plain dict — safe to read across threads
 
-                # Cap concurrency: 5 for LLM (rate-limit headroom), 3 for Simulated
-                max_workers = min(5 if is_llm else 3, len(unscored))
+                # Use user-selected concurrency limit, capped at the number of unscored items
+                user_concurrency = int(st.session_state.get("bulk_concurrency", 5))
+                max_workers = min(user_concurrency, len(unscored))
                 n           = len(unscored)
 
                 # ── Live display slots ──────────────────────────────────────────
