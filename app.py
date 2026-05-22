@@ -7,6 +7,8 @@ import time
 import hashlib
 import urllib.request
 import urllib.error
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 import pandas as pd
 import plotly.graph_objects as go
@@ -1885,39 +1887,115 @@ elif page == "Submissions":
         if run_bulk:
             unscored = [s for s in st.session_state.submissions if s["status"] == "New"]
             if unscored:
-                prog      = st.progress(0)
-                msg       = st.empty()
-                llm_warns = []
-                for i, sub in enumerate(unscored):
-                    mode_label = st.session_state.get("scoring_mode", "Simulated")
-                    msg.markdown(
-                        f'<div style="font-size:12px;color:#8b949e;padding:4px 0;">'
-                        f'🤖 Scoring <strong style="color:#e6edf3">{sub["name"]}</strong> '
-                        f'({i+1}/{len(unscored)}) — {mode_label} mode…</div>',
-                        unsafe_allow_html=True,
+                mode_label  = st.session_state.get("scoring_mode", "Simulated")
+                is_llm      = mode_label == "Real LLM"
+                # Cap at 5 concurrent workers for LLM (rate-limit headroom),
+                # 3 for Simulated (CPU-light heuristics don't need more).
+                max_workers = min(5 if is_llm else 3, len(unscored))
+                n           = len(unscored)
+
+                # ── Live display slots ──────────────────────────────────────────
+                prog_bar    = st.progress(0.0)
+                status_slot = st.empty()
+
+                # ── Thread-safe result accumulator ──────────────────────────────
+                # Worker threads write here; the main thread reads after each
+                # future completes via as_completed — no session state touched
+                # inside worker threads.
+                results_lock = threading.Lock()
+                results: dict = {}   # sub_id -> {"sc": ..., "warn": ...}
+
+                def _score_worker(sub, rubric_data):
+                    """Run in a worker thread. Returns (sub_id, sc, warn)."""
+                    try:
+                        if not is_llm:
+                            time.sleep(0.3)   # brief stagger for visual effect
+                        sc, warn = route_scoring(sub, rubric_data)
+                        return sub["id"], sc, warn
+                    except Exception as exc:
+                        sc_fallback = ai_score_submission(sub, rubric_data)
+                        return sub["id"], sc_fallback, f"Error on '{sub['name']}': {exc} — Simulated fallback used."
+
+                llm_warns  = []
+                completed  = 0
+                rate_limit_hits = 0
+
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    # Snapshot rubric for thread safety (it's a plain dict — safe to read)
+                    rubric_snap = rubric
+                    future_to_sub = {
+                        executor.submit(_score_worker, sub, rubric_snap): sub
+                        for sub in unscored
+                    }
+
+                    # Build an id→name lookup for the live display
+                    id_to_name = {sub["id"]: sub["name"] for sub in unscored}
+                    # Track which futures are still pending so we can list in-flight names
+                    pending_ids = set(id_to_name.keys())
+
+                    for future in as_completed(future_to_sub):
+                        sub_id, sc, warn = future.result()
+                        pending_ids.discard(sub_id)
+
+                        # ── Update session state (main thread only) ────────────
+                        idx = next(
+                            j for j, s in enumerate(st.session_state.submissions)
+                            if s["id"] == sub_id
+                        )
+                        st.session_state.submissions[idx].update({
+                            "overall":     sc["overall"],
+                            "innovation":  sc["innovation"],
+                            "feasibility": sc["feasibility"],
+                            "categories":  sc["categories"],
+                            "auto_reject": sc["auto_reject"],
+                            "high_risk":   sc["high_risk"],
+                            "scored_at":   sc["scored_at"],
+                            "status":      "Scored",
+                        })
+
+                        if warn:
+                            llm_warns.append(warn)
+                            if "rate" in warn.lower() or "429" in warn:
+                                rate_limit_hits += 1
+
+                        completed += 1
+                        prog_bar.progress(completed / n)
+
+                        # ── Live status line ───────────────────────────────────
+                        done_name   = id_to_name[sub_id]
+                        in_flight   = [id_to_name[i] for i in pending_ids]
+                        flight_html = ""
+                        if in_flight:
+                            names_str  = ", ".join(f"<em>{nm}</em>" for nm in in_flight[:4])
+                            more       = f" +{len(in_flight)-4} more" if len(in_flight) > 4 else ""
+                            flight_html = (
+                                f'<span style="color:#6e7681;"> · scoring: {names_str}{more}</span>'
+                            )
+                        status_slot.markdown(
+                            f'<div style="font-size:12px;color:#3fb950;padding:4px 0;">'
+                            f'✓ <strong style="color:#e6edf3">{done_name}</strong> scored '
+                            f'<span style="color:#8b949e;">({completed}/{n})</span>'
+                            f'{flight_html}</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                # ── Summary ────────────────────────────────────────────────────
+                status_slot.empty()
+                prog_bar.progress(1.0)
+                if rate_limit_hits:
+                    st.warning(
+                        f"{rate_limit_hits} call(s) hit rate limits and fell back to Simulated scoring. "
+                        "Try reducing the batch size or switching to Simulated mode.",
+                        icon="⚠️",
                     )
-                    if mode_label == "Simulated":
-                        time.sleep(0.6)
-                    sc, warn = route_scoring(sub, rubric)
-                    if warn:
-                        llm_warns.append(warn)
-                    idx = next(j for j, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                    st.session_state.submissions[idx].update({
-                        "overall":     sc["overall"],
-                        "innovation":  sc["innovation"],
-                        "feasibility": sc["feasibility"],
-                        "categories":  sc["categories"],
-                        "auto_reject": sc["auto_reject"],
-                        "high_risk":   sc["high_risk"],
-                        "scored_at":   sc["scored_at"],
-                        "status":      "Scored",
-                    })
-                    prog.progress((i + 1) / len(unscored))
-                msg.empty()
-                if llm_warns:
-                    st.warning(llm_warns[0])
+                elif llm_warns:
+                    st.warning(llm_warns[0], icon="⚠️")
                 n_reject = sum(1 for s in st.session_state.submissions if s.get("auto_reject"))
-                st.success(f"Scored {len(unscored)} submission(s). {n_reject} triggered auto-reject gates.")
+                parallel_note = f" ({max_workers} concurrent)" if max_workers > 1 else ""
+                st.success(
+                    f"Scored {n} submission(s){parallel_note}. "
+                    f"{n_reject} triggered auto-reject gates."
+                )
                 st.rerun()
             else:
                 st.info("No unscored submissions.")
