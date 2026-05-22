@@ -987,6 +987,157 @@ def extract_file_text(uploaded_files):
     return "\n\n".join(parts)
 
 
+def _ai_score_llm_pure(submission, rubric_data, api_key: str, base_url: str, model: str):
+    """
+    Pure LLM scoring — no st.session_state or module-level globals accessed.
+    All config is passed in explicitly so this is safe to call from worker threads.
+    Raises RuntimeError on API/parse failure (caller handles fallback).
+    """
+    criteria    = rubric_data.get("criteria", [])
+    rubric_json = json.dumps(rubric_data, indent=2)
+
+    system_prompt = f"""You are ForgeOS, an expert innovation scoring engine for physical goods companies.
+You will score a product idea submission against the ForgeOS Extensive Rubric v2.
+
+RUBRIC JSON:
+{rubric_json}
+
+INSTRUCTIONS:
+- Score each criterion on a scale of 1.0–10.0 (one decimal place).
+- Return ONLY a valid JSON object — no markdown, no extra text.
+- The JSON must have this exact schema:
+{{
+  "criteria": {{
+    "<criterion_name>": {{
+      "score_10": <float 1.0-10.0>,
+      "justification": "<2-3 sentence rubric-anchored justification>",
+      "red_flags": [<list of triggered red flag strings, may be empty>],
+      "gating_pass": <true if score meets the gating threshold for this criterion, else false>
+    }}
+  }},
+  "weighted_total": <float 0-100>
+}}
+- Use the exact criterion names from the rubric.
+- Weight the overall score as a weighted average using the weights in the rubric.
+- Be discerning and critical — physical goods innovation is hard. Do not inflate scores.
+- Base your scores on the idea name, notes, and any uploaded file content provided."""
+
+    name           = submission.get("name", "")
+    notes          = submission.get("notes", "")
+    extracted_text = submission.get("extracted_text", "")
+
+    user_parts = [f"IDEA NAME: {name}"]
+    if notes.strip():
+        user_parts.append(f"NOTES: {notes}")
+    if extracted_text.strip():
+        user_parts.append(f"UPLOADED FILE CONTENT:\n{extracted_text[:6000]}")
+    user_message = "\n\n".join(user_parts)
+
+    payload = json.dumps({
+        "model":           model,
+        "messages":        [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message},
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature":     0.2,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url     = f"{base_url}/chat/completions",
+        data    = payload,
+        headers = {
+            "Content-Type":  "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method  = "POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            raw_body   = resp.read().decode("utf-8")
+            api_result = json.loads(raw_body)
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"LLM API HTTP {e.code}: {err_body[:300]}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"LLM API connection error: {e.reason}") from e
+
+    content  = api_result["choices"][0]["message"]["content"]
+    llm_json = json.loads(content)
+
+    llm_criteria    = llm_json.get("criteria", {})
+    scored_criteria = {}
+
+    GATE_MAP = {
+        "Innovation & Novelty":                  (6.0, "auto-reject"),
+        "Technical & Manufacturing Feasibility": (6.0, "auto-reject"),
+        "Sustainability & Circularity":          (5.0, "high-risk"),
+        "Evidence Quality & Realism":            (4.0, "auto-reject"),
+    }
+
+    for crit in criteria:
+        key          = crit["criterion"]
+        weight       = crit.get("weight", 10)
+        llm_crit     = llm_criteria.get(key, {})
+        score_10     = float(llm_crit.get("score_10", 5.0))
+        score_10     = max(1.0, min(10.0, round(score_10, 1)))
+        justification = llm_crit.get("justification", "")
+        red_flags    = llm_crit.get("red_flags", [])
+
+        if score_10 <= 3:
+            band      = "1-3"
+            anchor_txt = crit.get("scoring_anchors", {}).get("1-3", "Below threshold")
+        elif score_10 <= 6:
+            band      = "4-6"
+            anchor_txt = crit.get("scoring_anchors", {}).get("4-6", "Moderate")
+        else:
+            band      = "7-10"
+            anchor_txt = crit.get("scoring_anchors", {}).get("7-10", "Strong")
+
+        evidence_level = "Sufficient" if score_10 >= 6 else ("Partial" if score_10 >= 4 else "Insufficient")
+
+        scored_criteria[key] = {
+            "name":          key,
+            "score_10":      score_10,
+            "score":         round(score_10 * 10),
+            "weight":        weight,
+            "weight_frac":   weight / 100.0,
+            "anchor_band":   band,
+            "anchor_text":   anchor_txt,
+            "justification": justification,
+            "evidence":      evidence_level,
+            "evidence_req":  crit.get("evidence_required", ""),
+            "red_flags":     red_flags,
+            "sub_factors":   crit.get("sub_factors", []),
+        }
+
+    total_w = sum(v["weight_frac"] for v in scored_criteria.values())
+    overall = round(
+        sum(v["score"] * v["weight_frac"] for v in scored_criteria.values()) / max(total_w, 0.01),
+        1,
+    )
+    overall = min(overall, 100.0)
+
+    auto_reject_flags, high_risk_flags = [], []
+    for crit_name, (threshold, action) in GATE_MAP.items():
+        if crit_name in scored_criteria:
+            s = scored_criteria[crit_name]["score_10"]
+            if s < threshold:
+                msg_g = f"{crit_name}: {s:.1f}/10 — below gate threshold of {threshold}/10"
+                (auto_reject_flags if action == "auto-reject" else high_risk_flags).append(msg_g)
+
+    return {
+        "overall":     overall,
+        "innovation":  scored_criteria.get("Innovation & Novelty", {}).get("score", 0),
+        "feasibility": scored_criteria.get("Technical & Manufacturing Feasibility", {}).get("score", 0),
+        "categories":  scored_criteria,
+        "auto_reject": auto_reject_flags,
+        "high_risk":   high_risk_flags,
+        "scored_at":   datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
 def ai_score_submission_llm(submission, rubric_data):
     """
     Real LLM scoring using an OpenAI-compatible API (default: xAI Grok).
@@ -1887,10 +2038,16 @@ elif page == "Submissions":
         if run_bulk:
             unscored = [s for s in st.session_state.submissions if s["status"] == "New"]
             if unscored:
-                mode_label  = st.session_state.get("scoring_mode", "Simulated")
-                is_llm      = mode_label == "Real LLM"
-                # Cap at 5 concurrent workers for LLM (rate-limit headroom),
-                # 3 for Simulated (CPU-light heuristics don't need more).
+                # ── Snapshot ALL config before spawning threads ─────────────────
+                # Workers must never read st.session_state — pass everything in.
+                mode_label = st.session_state.get("scoring_mode", "Simulated")
+                is_llm     = mode_label == "Real LLM"
+                snap_key   = _effective_llm_key() if is_llm else ""
+                snap_url   = _FORGE_LLM_BASE_URL
+                snap_model = _FORGE_LLM_MODEL
+                rubric_snap = rubric   # plain dict — safe to read across threads
+
+                # Cap concurrency: 5 for LLM (rate-limit headroom), 3 for Simulated
                 max_workers = min(5 if is_llm else 3, len(unscored))
                 n           = len(unscored)
 
@@ -1898,46 +2055,82 @@ elif page == "Submissions":
                 prog_bar    = st.progress(0.0)
                 status_slot = st.empty()
 
-                # ── Thread-safe result accumulator ──────────────────────────────
-                # Worker threads write here; the main thread reads after each
-                # future completes via as_completed — no session state touched
-                # inside worker threads.
-                results_lock = threading.Lock()
-                results: dict = {}   # sub_id -> {"sc": ..., "warn": ...}
+                # ── Thread-safe in-flight tracking ──────────────────────────────
+                # active_ids: IDs whose worker is currently executing (not queued)
+                active_ids  = set()
+                active_lock = threading.Lock()
 
-                def _score_worker(sub, rubric_data):
-                    """Run in a worker thread. Returns (sub_id, sc, warn)."""
+                # stop_event: set by the first worker that hits a 429/rate-limit;
+                # subsequent workers check this before making their LLM call and
+                # fall back to Simulated instead, preserving score quality semantics.
+                stop_event  = threading.Event()
+
+                def _score_worker_pure(sub, rubric_data, mode, api_key, base_url, model):
+                    """
+                    Pure worker: all config passed in — no st.session_state access.
+                    Returns (sub_id, score_dict, warning_str_or_None, is_rate_limit).
+                    """
+                    sub_id = sub["id"]
+                    with active_lock:
+                        active_ids.add(sub_id)
                     try:
-                        if not is_llm:
-                            time.sleep(0.3)   # brief stagger for visual effect
-                        sc, warn = route_scoring(sub, rubric_data)
-                        return sub["id"], sc, warn
-                    except Exception as exc:
-                        sc_fallback = ai_score_submission(sub, rubric_data)
-                        return sub["id"], sc_fallback, f"Error on '{sub['name']}': {exc} — Simulated fallback used."
+                        if mode == "Real LLM":
+                            # Rate-limit gate: if another worker already hit 429,
+                            # use Simulated immediately rather than hammering the API.
+                            if stop_event.is_set():
+                                sc = ai_score_submission(sub, rubric_data)
+                                return sub_id, sc, None, False
+                            if not api_key:
+                                sc = ai_score_submission(sub, rubric_data)
+                                return sub_id, sc, "No API key — used Simulated fallback.", False
+                            try:
+                                sc = _ai_score_llm_pure(sub, rubric_data, api_key, base_url, model)
+                                return sub_id, sc, None, False
+                            except RuntimeError as exc:
+                                warn = str(exc)
+                                is_rate = ("429" in warn or "rate" in warn.lower())
+                                if is_rate:
+                                    stop_event.set()   # signal all other workers
+                                sc = ai_score_submission(sub, rubric_data)
+                                return sub_id, sc, warn, is_rate
+                        else:
+                            time.sleep(0.3)   # brief stagger for Simulated visual effect
+                            sc = ai_score_submission(sub, rubric_data)
+                            return sub_id, sc, None, False
+                    finally:
+                        with active_lock:
+                            active_ids.discard(sub_id)
 
-                llm_warns  = []
-                completed  = 0
-                rate_limit_hits = 0
+                id_to_name       = {sub["id"]: sub["name"] for sub in unscored}
+                llm_warns        = []
+                completed        = 0
+                rate_limit_hits  = 0
 
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    # Snapshot rubric for thread safety (it's a plain dict — safe to read)
-                    rubric_snap = rubric
-                    future_to_sub = {
-                        executor.submit(_score_worker, sub, rubric_snap): sub
+                    future_to_id = {
+                        executor.submit(
+                            _score_worker_pure,
+                            sub, rubric_snap, mode_label, snap_key, snap_url, snap_model,
+                        ): sub["id"]
                         for sub in unscored
                     }
 
-                    # Build an id→name lookup for the live display
-                    id_to_name = {sub["id"]: sub["name"] for sub in unscored}
-                    # Track which futures are still pending so we can list in-flight names
-                    pending_ids = set(id_to_name.keys())
+                    for future in as_completed(future_to_id):
+                        # Cancelled futures (from stop_event path) raise CancelledError
+                        try:
+                            sub_id, sc, warn, is_rate = future.result()
+                        except Exception:
+                            # Will be picked up in the sequential fallback below
+                            continue
 
-                    for future in as_completed(future_to_sub):
-                        sub_id, sc, warn = future.result()
-                        pending_ids.discard(sub_id)
+                        if is_rate:
+                            rate_limit_hits += 1
+                            # Cancel any futures still queued (not yet started)
+                            for f in future_to_id:
+                                if not f.running() and not f.done():
+                                    f.cancel()
 
-                        # ── Update session state (main thread only) ────────────
+                        # ── Session state update — main thread only ────────────
                         idx = next(
                             j for j, s in enumerate(st.session_state.submissions)
                             if s["id"] == sub_id
@@ -1952,25 +2145,22 @@ elif page == "Submissions":
                             "scored_at":   sc["scored_at"],
                             "status":      "Scored",
                         })
-
                         if warn:
                             llm_warns.append(warn)
-                            if "rate" in warn.lower() or "429" in warn:
-                                rate_limit_hits += 1
 
                         completed += 1
                         prog_bar.progress(completed / n)
 
-                        # ── Live status line ───────────────────────────────────
-                        done_name   = id_to_name[sub_id]
-                        in_flight   = [id_to_name[i] for i in pending_ids]
+                        # ── Live status: accurately read in-flight IDs ─────────
+                        done_name = id_to_name[sub_id]
+                        with active_lock:
+                            currently_active = set(active_ids)
+                        in_flight = [id_to_name[i] for i in currently_active if i in id_to_name]
                         flight_html = ""
                         if in_flight:
-                            names_str  = ", ".join(f"<em>{nm}</em>" for nm in in_flight[:4])
-                            more       = f" +{len(in_flight)-4} more" if len(in_flight) > 4 else ""
-                            flight_html = (
-                                f'<span style="color:#6e7681;"> · scoring: {names_str}{more}</span>'
-                            )
+                            names_str   = ", ".join(f"<em>{nm}</em>" for nm in in_flight[:4])
+                            more        = f" +{len(in_flight)-4} more" if len(in_flight) > 4 else ""
+                            flight_html = f'<span style="color:#6e7681;"> · in-flight: {names_str}{more}</span>'
                         status_slot.markdown(
                             f'<div style="font-size:12px;color:#3fb950;padding:4px 0;">'
                             f'✓ <strong style="color:#e6edf3">{done_name}</strong> scored '
@@ -1979,19 +2169,48 @@ elif page == "Submissions":
                             unsafe_allow_html=True,
                         )
 
+                # ── Sequential fallback for any still-New after rate-limit ──────
+                still_new = [s for s in st.session_state.submissions if s["status"] == "New"]
+                if still_new:
+                    status_slot.markdown(
+                        f'<div style="font-size:12px;color:#d29922;padding:4px 0;">'
+                        f'⚠ Rate limit hit — finishing {len(still_new)} remaining idea(s) sequentially '
+                        f'with Simulated scoring…</div>',
+                        unsafe_allow_html=True,
+                    )
+                    for sub in still_new:
+                        sc = ai_score_submission(sub, rubric_snap)
+                        idx = next(
+                            j for j, s in enumerate(st.session_state.submissions)
+                            if s["id"] == sub["id"]
+                        )
+                        st.session_state.submissions[idx].update({
+                            "overall":     sc["overall"],
+                            "innovation":  sc["innovation"],
+                            "feasibility": sc["feasibility"],
+                            "categories":  sc["categories"],
+                            "auto_reject": sc["auto_reject"],
+                            "high_risk":   sc["high_risk"],
+                            "scored_at":   sc["scored_at"],
+                            "status":      "Scored",
+                        })
+                        completed += 1
+                        prog_bar.progress(completed / n)
+
                 # ── Summary ────────────────────────────────────────────────────
                 status_slot.empty()
                 prog_bar.progress(1.0)
                 if rate_limit_hits:
                     st.warning(
-                        f"{rate_limit_hits} call(s) hit rate limits and fell back to Simulated scoring. "
-                        "Try reducing the batch size or switching to Simulated mode.",
+                        f"{rate_limit_hits} API call(s) hit rate limits — those ideas were scored "
+                        "with Simulated fallback. Remaining ideas were processed sequentially. "
+                        "Try a smaller batch or wait before re-running.",
                         icon="⚠️",
                     )
                 elif llm_warns:
                     st.warning(llm_warns[0], icon="⚠️")
-                n_reject = sum(1 for s in st.session_state.submissions if s.get("auto_reject"))
-                parallel_note = f" ({max_workers} concurrent)" if max_workers > 1 else ""
+                n_reject       = sum(1 for s in st.session_state.submissions if s.get("auto_reject"))
+                parallel_note  = f" ({max_workers} concurrent)" if max_workers > 1 else ""
                 st.success(
                     f"Scored {n} submission(s){parallel_note}. "
                     f"{n_reject} triggered auto-reject gates."
