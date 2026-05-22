@@ -110,19 +110,5 @@
     "Sustainability & Circularity >= 5/10 or flag high risk",
     "Evidence Quality & Realism >= 4/10 or auto-reject"
   ],
-  "overall_scoring": "Weighted average out of 100. Always output structured JSON.",
-  "pipeline_stages": [
-    {"id": 1, "name": "Intake",       "description": "Submission received and logged",            "color": "#6366f1"},
-    {"id": 2, "name": "Concept",      "description": "Initial concept review and scoring",        "color": "#3b82f6"},
-    {"id": 3, "name": "Validation",   "description": "Technical and market validation",           "color": "#06b6d4"},
-    {"id": 4, "name": "Prototyping",  "description": "Rapid prototype development",               "color": "#10b981"},
-    {"id": 5, "name": "Market Test",  "description": "Beta launch and market testing",            "color": "#f59e0b"},
-    {"id": 6, "name": "Scaling",      "description": "Full production and go-to-market",          "color": "#f97316"},
-    {"id": 7, "name": "Monitoring",   "description": "Post-launch performance tracking",          "color": "#8b5cf6"}
-  ],
-  "scoring_thresholds": {
-    "green": 70,
-    "yellow": 50,
-    "red": 0
-  }
+  "overall_scoring": "Weighted average out of 100. Always output structured JSON."
 }

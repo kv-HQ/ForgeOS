@@ -412,23 +412,38 @@ def make_gauge(score, title="", height=160):
     return fig
 
 def ai_score_submission(submission, rubric_data):
-    """Simulate AI scoring using rubric weights."""
-    scores = {}
+    """Simulate AI scoring using rubric weights (v2 flat criteria schema)."""
     category_scores = {}
-    for cat in rubric_data.get("categories", []):
+    innovation = None
+    feasibility = None
+    for crit in rubric_data.get("criteria", []):
         base = random.randint(45, 95)
         noise = random.randint(-8, 8)
-        cat_score = max(10, min(100, base + noise))
-        category_scores[cat["id"]] = {
-            "name": cat["name"],
-            "score": cat_score,
-            "weight": cat.get("weight", 0.2),
+        crit_score = max(10, min(100, base + noise))
+        weight_pct = crit.get("weight", 10)
+        key = crit["criterion"]
+        category_scores[key] = {
+            "name": crit["criterion"],
+            "score": crit_score,
+            "weight": weight_pct / 100,
         }
-    overall = sum(v["score"] * v["weight"] for v in category_scores.values())
-    innovation = category_scores.get("innovation", {}).get("score", random.randint(50, 90))
-    feasibility = category_scores.get("feasibility", {}).get("score", random.randint(50, 90))
+        if "Innovation" in key:
+            innovation = crit_score
+        if "Feasibility" in key or "Manufacturing" in key:
+            feasibility = crit_score
+    total_weight = sum(v["weight"] for v in category_scores.values())
+    if total_weight > 0:
+        overall = sum(v["score"] * v["weight"] for v in category_scores.values()) / total_weight * 100
+    else:
+        overall = 0.0
+    # Normalise to 0-100
+    overall = round(min(overall, 100), 1)
+    if innovation is None:
+        innovation = random.randint(50, 90)
+    if feasibility is None:
+        feasibility = random.randint(50, 90)
     return {
-        "overall": round(overall, 1),
+        "overall": overall,
         "innovation": innovation,
         "feasibility": feasibility,
         "categories": category_scores,
@@ -1003,6 +1018,10 @@ elif page == "⚙️  Rubric Settings":
     if not rubric:
         st.error("No rubric.json found. Please create a rubric.json file in the project root.")
     else:
+        criteria_list = rubric.get("criteria", [])
+        total_w = sum(c.get("weight", 0) for c in criteria_list)
+        crit_count = len(criteria_list)
+
         # ── Header info ────────────────────────────────────────────────────────
         col_info1, col_info2 = st.columns([3, 1])
         with col_info1:
@@ -1011,19 +1030,20 @@ elif page == "⚙️  Rubric Settings":
                 <div class="rubric-category-name">{rubric.get('rubric_name', 'Innovation Rubric')}</div>
                 <div class="rubric-category-desc">{rubric.get('description', '')}</div>
                 <div style="margin-top:8px;">
-                    <span class="info-chip">v{rubric.get('version', '1.0')}</span>
-                    <span class="info-chip">{len(rubric.get('categories', []))} categories</span>
+                    <span class="info-chip">{crit_count} criteria</span>
+                    <span class="info-chip">Scores 1–10 per criterion</span>
+                    <span class="info-chip">Weighted avg out of 100</span>
                 </div>
             </div>""", unsafe_allow_html=True)
         with col_info2:
-            total_w = sum(c.get("weight", 0) for c in rubric.get("categories", []))
+            w_ok = abs(total_w - 100) < 1
+            w_color = "#4ade80" if w_ok else "#f87171"
+            w_label = "Balanced" if w_ok else "Should sum to 100"
             st.markdown(f"""
             <div class="metric-card">
                 <div class="metric-label">Total Weight</div>
-                <div class="metric-value" style="color:{'#4ade80' if abs(total_w-1)<0.01 else '#f87171'};">
-                    {round(total_w*100)}%
-                </div>
-                <div class="metric-sub">{'Balanced' if abs(total_w-1)<0.01 else 'Imbalanced — should sum to 100%'}</div>
+                <div class="metric-value" style="color:{w_color};">{total_w}%</div>
+                <div class="metric-sub">{w_label}</div>
             </div>""", unsafe_allow_html=True)
 
         # ── Scoring thresholds ─────────────────────────────────────────────────
@@ -1051,46 +1071,102 @@ elif page == "⚙️  Rubric Settings":
                 <div class="metric-sub">Low priority, de-prioritize</div>
             </div>""", unsafe_allow_html=True)
 
-        # ── Categories ─────────────────────────────────────────────────────────
-        st.markdown('<div class="section-title">Scoring Categories</div>', unsafe_allow_html=True)
+        # ── Gating Rules ──────────────────────────────────────────────────────
+        gating = rubric.get("gating_rules", [])
+        if gating:
+            st.markdown('<div class="section-title">Gating Rules (Auto-Reject / Flag)</div>', unsafe_allow_html=True)
+            gate_html = "".join(
+                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
+                f'<span style="color:#f87171;font-size:1rem;">⛔</span>'
+                f'<span style="font-size:0.85rem;color:#e2e8f0;">{rule}</span></div>'
+                for rule in gating
+            )
+            st.markdown(f'<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px 20px;">{gate_html}</div>', unsafe_allow_html=True)
 
-        # Weight distribution chart
-        cat_names  = [c["name"]              for c in rubric.get("categories", [])]
-        cat_weights= [c.get("weight", 0)*100 for c in rubric.get("categories", [])]
-        cat_colors = ["#3b82f6","#10b981","#f59e0b","#8b5cf6","#f97316"]
+        # ── Criteria weight chart ──────────────────────────────────────────────
+        st.markdown('<div class="section-title">Criteria Weights</div>', unsafe_allow_html=True)
+
+        cat_colors = ["#3b82f6","#10b981","#f59e0b","#8b5cf6","#f97316","#06b6d4","#ec4899","#84cc16"]
+        cat_names   = [c["criterion"]      for c in criteria_list]
+        cat_weights = [c.get("weight", 0)  for c in criteria_list]
 
         fig_weights = go.Figure(go.Bar(
             x=cat_names, y=cat_weights,
-            marker_color=cat_colors[:len(cat_names)],
-            text=[f"{w:.0f}%" for w in cat_weights],
+            marker_color=[cat_colors[i % len(cat_colors)] for i in range(len(cat_names))],
+            text=[f"{w}%" for w in cat_weights],
             textposition="auto",
             textfont=dict(color="#e2e8f0", size=11),
         ))
         fig_weights.update_layout(
             paper_bgcolor="#1e293b", plot_bgcolor="#1e293b",
             font={"color": "#94a3b8", "family": "Inter"},
-            xaxis=dict(gridcolor="#334155", color="#64748b"),
+            xaxis=dict(gridcolor="#334155", color="#64748b", tickangle=-25),
             yaxis=dict(gridcolor="#334155", color="#64748b", title="Weight (%)"),
-            height=220, margin=dict(l=0, r=0, t=8, b=0),
+            height=260, margin=dict(l=0, r=0, t=8, b=60),
         )
         st.plotly_chart(fig_weights, use_container_width=True)
 
-        # Category detail cards
-        for i, cat in enumerate(rubric.get("categories", [])):
+        # ── Criterion detail cards ─────────────────────────────────────────────
+        st.markdown('<div class="section-title">Criterion Detail</div>', unsafe_allow_html=True)
+        for i, crit in enumerate(criteria_list):
             color = cat_colors[i % len(cat_colors)]
-            with st.expander(f"{cat['name']}  ·  Weight: {int(cat.get('weight',0)*100)}%"):
-                st.markdown(f'<span style="color:#94a3b8;font-size:0.85rem;">{cat.get("description","")}</span>', unsafe_allow_html=True)
-                st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-                for criterion in cat.get("criteria", []):
-                    st.markdown(f"""
-                    <div style="background:#0f172a; border:1px solid #334155; border-left: 3px solid {color};
-                                border-radius:8px; padding:12px 16px; margin-bottom:10px;">
-                        <div style="font-size:0.88rem; font-weight:600; color:#e2e8f0; margin-bottom:4px;">
-                            {criterion['name']}
-                            <span style="color:#475569; font-weight:400; font-size:0.78rem;"> · max {criterion.get('max_score',10)} pts</span>
-                        </div>
-                        <div style="font-size:0.8rem; color:#64748b; margin-bottom:8px;">{criterion.get('description','')}</div>
-                    </div>""", unsafe_allow_html=True)
+            anchors = crit.get("scoring_anchors", {})
+            sub_factors = crit.get("sub_factors", [])
+            red_flags = crit.get("red_flags", [])
+            evidence = crit.get("evidence_required", "")
+
+            with st.expander(f"{crit['criterion']}  ·  Weight: {crit.get('weight', 0)}%"):
+                st.markdown(f'<span style="color:#94a3b8;font-size:0.85rem;">{crit.get("description","")}</span>', unsafe_allow_html=True)
+                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
+
+                col_left, col_right = st.columns([3, 2])
+
+                with col_left:
+                    # Scoring anchors
+                    if anchors:
+                        st.markdown('<span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:#475569;font-weight:600;">Scoring Anchors</span>', unsafe_allow_html=True)
+                        anchor_colors = {"1-3": "#f87171", "4-6": "#fbbf24", "7-10": "#4ade80"}
+                        for band, desc in anchors.items():
+                            ac = anchor_colors.get(band, "#94a3b8")
+                            st.markdown(f"""
+                            <div style="background:#0f172a;border-left:3px solid {ac};border-radius:6px;
+                                        padding:8px 12px;margin:6px 0;">
+                                <span style="color:{ac};font-weight:700;font-size:0.8rem;">{band}</span>
+                                <span style="color:#94a3b8;font-size:0.8rem;margin-left:8px;">{desc}</span>
+                            </div>""", unsafe_allow_html=True)
+
+                    # Evidence required
+                    if evidence:
+                        st.markdown(f"""
+                        <div style="margin-top:10px;background:#0f172a;border:1px solid #334155;
+                                    border-radius:6px;padding:8px 12px;">
+                            <span style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;
+                                         color:#475569;font-weight:600;">Evidence Required</span><br>
+                            <span style="color:#94a3b8;font-size:0.8rem;">{evidence}</span>
+                        </div>""", unsafe_allow_html=True)
+
+                with col_right:
+                    # Sub-factors
+                    if sub_factors:
+                        st.markdown('<span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:#475569;font-weight:600;">Sub-Factors</span>', unsafe_allow_html=True)
+                        sf_html = "".join(
+                            f'<div style="display:flex;align-items:center;gap:8px;margin:5px 0;">'
+                            f'<span style="color:{color};font-size:0.7rem;">▸</span>'
+                            f'<span style="color:#e2e8f0;font-size:0.82rem;">{sf}</span></div>'
+                            for sf in sub_factors
+                        )
+                        st.markdown(f'<div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:10px 14px;">{sf_html}</div>', unsafe_allow_html=True)
+
+                    # Red flags
+                    if red_flags:
+                        st.markdown('<span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:#475569;font-weight:600;margin-top:10px;display:block;">Red Flags</span>', unsafe_allow_html=True)
+                        rf_html = "".join(
+                            f'<div style="display:flex;align-items:center;gap:8px;margin:5px 0;">'
+                            f'<span style="color:#f87171;font-size:0.75rem;">⚑</span>'
+                            f'<span style="color:#f87171;font-size:0.82rem;">{rf}</span></div>'
+                            for rf in red_flags
+                        )
+                        st.markdown(f'<div style="background:#2a0a0a;border:1px solid #7f1d1d44;border-radius:6px;padding:10px 14px;margin-top:6px;">{rf_html}</div>', unsafe_allow_html=True)
 
         # ── Rubric JSON view ────────────────────────────────────────────────
         st.markdown('<div class="section-title">Raw Rubric (rubric.json)</div>', unsafe_allow_html=True)
@@ -1098,6 +1174,6 @@ elif page == "⚙️  Rubric Settings":
 
         st.info(
             "To modify the rubric, edit **rubric.json** in the project root and restart the app. "
-            "Changes to weights, categories, and thresholds will take effect immediately.",
+            "Changes to criteria, weights, and thresholds will take effect immediately.",
             icon="ℹ️"
         )
