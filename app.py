@@ -5,10 +5,18 @@ import uuid
 import random
 import time
 import hashlib
+import urllib.request
+import urllib.error
 from datetime import datetime, timedelta
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+
+# ─── LLM Config ──────────────────────────────────────────────────────────────
+_FORGE_LLM_API_KEY  = os.environ.get("FORGE_LLM_API_KEY", "")
+_FORGE_LLM_BASE_URL = os.environ.get("FORGE_LLM_BASE_URL", "https://api.x.ai/v1").rstrip("/")
+_FORGE_LLM_MODEL    = os.environ.get("FORGE_LLM_MODEL", "grok-3")
+_LLM_AVAILABLE      = bool(_FORGE_LLM_API_KEY)
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -527,6 +535,8 @@ if "next_id" not in st.session_state:
     st.session_state.next_id = 1001
 if "flash_msg" not in st.session_state:
     st.session_state.flash_msg = None
+if "scoring_mode" not in st.session_state:
+    st.session_state.scoring_mode = "Simulated"
 
 STAGES = rubric.get("pipeline_stages", [
     {"id": 1, "name": "Intake",       "color": "#6e40c9"},
@@ -900,6 +910,236 @@ def ai_score_submission(submission, rubric_data):
         "high_risk":   high_risk_flags,
         "scored_at":   datetime.now().strftime("%Y-%m-%d %H:%M"),
     }
+
+
+def extract_file_text(uploaded_files):
+    """
+    Extract plain text from uploaded files for use as LLM context.
+    - PDF: text extracted via pypdf
+    - Image: placeholder note
+    - Video: placeholder note
+    - Text/other: decoded as UTF-8 where possible
+    Returns a combined string.
+    """
+    if not uploaded_files:
+        return ""
+    parts = []
+    for f in uploaded_files:
+        fname = f.name.lower()
+        ftype = f.type or ""
+        try:
+            if fname.endswith(".pdf") or "pdf" in ftype:
+                try:
+                    import pypdf
+                    reader = pypdf.PdfReader(f)
+                    pages  = []
+                    for page in reader.pages:
+                        txt = page.extract_text()
+                        if txt:
+                            pages.append(txt.strip())
+                    if pages:
+                        combined = "\n".join(pages)
+                        parts.append(f"[PDF: {f.name}]\n{combined}")
+                    else:
+                        parts.append(f"[PDF: {f.name}] (no extractable text — may be scanned image)")
+                except Exception as pdf_err:
+                    parts.append(f"[PDF: {f.name}] (extraction failed: {pdf_err})")
+            elif any(fname.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
+                parts.append(f"[Image: {f.name}] — Image uploaded; manual visual review recommended.")
+            elif any(fname.endswith(ext) for ext in (".mp4", ".mov", ".avi", ".webm", ".mkv")):
+                parts.append(f"[Video: {f.name}] — Video uploaded; manual review recommended (transcription not available).")
+            elif any(fname.endswith(ext) for ext in (".txt", ".md", ".csv")):
+                raw = f.read()
+                try:
+                    parts.append(f"[Text: {f.name}]\n{raw.decode('utf-8', errors='replace')[:4000]}")
+                except Exception:
+                    parts.append(f"[Text: {f.name}] (could not decode)")
+            else:
+                raw = f.read()
+                try:
+                    decoded = raw.decode("utf-8", errors="replace")[:2000]
+                    parts.append(f"[File: {f.name}]\n{decoded}")
+                except Exception:
+                    parts.append(f"[File: {f.name}] (binary — cannot extract text)")
+        except Exception as outer_err:
+            parts.append(f"[File: {f.name}] (read error: {outer_err})")
+        finally:
+            try:
+                f.seek(0)
+            except Exception:
+                pass
+    return "\n\n".join(parts)
+
+
+def ai_score_submission_llm(submission, rubric_data):
+    """
+    Real LLM scoring using an OpenAI-compatible API (default: xAI Grok).
+    Sends the full rubric as system context and the submission details as user message.
+    Parses the structured JSON response and maps it to the same dict shape as
+    ai_score_submission(). Falls back to ai_score_submission() on any error and
+    returns a (result, warning_message) tuple.
+    """
+    criteria    = rubric_data.get("criteria", [])
+    rubric_json = json.dumps(rubric_data, indent=2)
+
+    system_prompt = f"""You are ForgeOS, an expert innovation scoring engine for physical goods companies.
+You will score a product idea submission against the ForgeOS Extensive Rubric v2.
+
+RUBRIC JSON:
+{rubric_json}
+
+INSTRUCTIONS:
+- Score each criterion on a scale of 1.0–10.0 (one decimal place).
+- Return ONLY a valid JSON object — no markdown, no extra text.
+- The JSON must have this exact schema:
+{{
+  "criteria": {{
+    "<criterion_name>": {{
+      "score_10": <float 1.0-10.0>,
+      "justification": "<2-3 sentence rubric-anchored justification>",
+      "red_flags": [<list of triggered red flag strings, may be empty>],
+      "gating_pass": <true if score meets the gating threshold for this criterion, else false>
+    }}
+  }},
+  "weighted_total": <float 0-100>
+}}
+- Use the exact criterion names from the rubric.
+- Weight the overall score as a weighted average using the weights in the rubric.
+- Be discerning and critical — physical goods innovation is hard. Do not inflate scores.
+- Base your scores on the idea name, notes, and any uploaded file content provided."""
+
+    name           = submission.get("name", "")
+    notes          = submission.get("notes", "")
+    extracted_text = submission.get("extracted_text", "")
+
+    user_parts = [f"IDEA NAME: {name}"]
+    if notes.strip():
+        user_parts.append(f"NOTES: {notes}")
+    if extracted_text.strip():
+        user_parts.append(f"UPLOADED FILE CONTENT:\n{extracted_text[:6000]}")
+    user_message = "\n\n".join(user_parts)
+
+    payload = json.dumps({
+        "model":           _FORGE_LLM_MODEL,
+        "messages":        [
+            {"role": "system", "content": system_prompt},
+            {"role": "user",   "content": user_message},
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature":     0.2,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url     = f"{_FORGE_LLM_BASE_URL}/chat/completions",
+        data    = payload,
+        headers = {
+            "Content-Type":  "application/json",
+            "Authorization": f"Bearer {_FORGE_LLM_API_KEY}",
+        },
+        method  = "POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            raw_body   = resp.read().decode("utf-8")
+            api_result = json.loads(raw_body)
+    except urllib.error.HTTPError as e:
+        err_body = e.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"LLM API HTTP {e.code}: {err_body[:300]}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"LLM API connection error: {e.reason}") from e
+
+    content = api_result["choices"][0]["message"]["content"]
+    llm_json = json.loads(content)
+
+    llm_criteria  = llm_json.get("criteria", {})
+    scored_criteria = {}
+
+    GATE_MAP = {
+        "Innovation & Novelty":                  (6.0, "auto-reject"),
+        "Technical & Manufacturing Feasibility": (6.0, "auto-reject"),
+        "Sustainability & Circularity":          (5.0, "high-risk"),
+        "Evidence Quality & Realism":            (4.0, "auto-reject"),
+    }
+
+    for crit in criteria:
+        key          = crit["criterion"]
+        weight       = crit.get("weight", 10)
+        llm_crit     = llm_criteria.get(key, {})
+        score_10     = float(llm_crit.get("score_10", 5.0))
+        score_10     = max(1.0, min(10.0, round(score_10, 1)))
+        justification = llm_crit.get("justification", "")
+        red_flags    = llm_crit.get("red_flags", [])
+
+        if score_10 <= 3:
+            band = "1-3"
+            anchor_txt = crit.get("scoring_anchors", {}).get("1-3", "Below threshold")
+        elif score_10 <= 6:
+            band = "4-6"
+            anchor_txt = crit.get("scoring_anchors", {}).get("4-6", "Moderate")
+        else:
+            band = "7-10"
+            anchor_txt = crit.get("scoring_anchors", {}).get("7-10", "Strong")
+
+        evidence_level = "Sufficient" if score_10 >= 6 else ("Partial" if score_10 >= 4 else "Insufficient")
+
+        scored_criteria[key] = {
+            "name":          key,
+            "score_10":      score_10,
+            "score":         round(score_10 * 10),
+            "weight":        weight,
+            "weight_frac":   weight / 100.0,
+            "anchor_band":   band,
+            "anchor_text":   anchor_txt,
+            "justification": justification,
+            "evidence":      evidence_level,
+            "evidence_req":  crit.get("evidence_required", ""),
+            "red_flags":     red_flags,
+            "sub_factors":   crit.get("sub_factors", []),
+        }
+
+    total_w = sum(v["weight_frac"] for v in scored_criteria.values())
+    overall = round(
+        sum(v["score"] * v["weight_frac"] for v in scored_criteria.values()) / max(total_w, 0.01),
+        1,
+    )
+    overall = min(overall, 100.0)
+
+    auto_reject_flags, high_risk_flags = [], []
+    for crit_name, (threshold, action) in GATE_MAP.items():
+        if crit_name in scored_criteria:
+            s = scored_criteria[crit_name]["score_10"]
+            if s < threshold:
+                msg = f"{crit_name}: {s:.1f}/10 — below gate threshold of {threshold}/10"
+                (auto_reject_flags if action == "auto-reject" else high_risk_flags).append(msg)
+
+    return {
+        "overall":     overall,
+        "innovation":  scored_criteria.get("Innovation & Novelty", {}).get("score", 0),
+        "feasibility": scored_criteria.get("Technical & Manufacturing Feasibility", {}).get("score", 0),
+        "categories":  scored_criteria,
+        "auto_reject": auto_reject_flags,
+        "high_risk":   high_risk_flags,
+        "scored_at":   datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def route_scoring(submission, rubric_data):
+    """
+    Route scoring to either the real LLM or the simulated engine based on
+    st.session_state.scoring_mode. Returns (score_dict, warning_str_or_None).
+    warning_str is non-None when Real LLM was requested but fell back to Simulated.
+    """
+    mode = st.session_state.get("scoring_mode", "Simulated")
+    if mode == "Real LLM":
+        if not _LLM_AVAILABLE:
+            return ai_score_submission(submission, rubric_data), "FORGE_LLM_API_KEY not set — fell back to Simulated scoring."
+        try:
+            result = ai_score_submission_llm(submission, rubric_data)
+            return result, None
+        except Exception as e:
+            return ai_score_submission(submission, rubric_data), f"LLM error ({e}) — fell back to Simulated scoring."
+    return ai_score_submission(submission, rubric_data), None
 
 
 def generate_stage_summary(submission, new_stage):
@@ -1297,20 +1537,21 @@ def add_demo_submissions():
             if sn == stage:
                 break
         st.session_state.submissions.append({
-            "id":            sid,
-            "name":          name,
-            "file_type":     ftype,
-            "status":        status,
-            "stage":         stage,
-            "overall":       scores["overall"],
-            "innovation":    scores["innovation"],
-            "feasibility":   scores["feasibility"],
-            "categories":    scores["categories"],
-            "auto_reject":   scores.get("auto_reject", []),
-            "high_risk":     scores.get("high_risk", []),
-            "scored_at":     scores.get("scored_at", ""),
-            "stage_summary": generate_stage_summary({"name": name, "overall": scores["overall"]}, stage) if stage != "Intake" else "",
-            "stage_history": history,
+            "id":             sid,
+            "name":           name,
+            "file_type":      ftype,
+            "status":         status,
+            "stage":          stage,
+            "overall":        scores["overall"],
+            "innovation":     scores["innovation"],
+            "feasibility":    scores["feasibility"],
+            "categories":     scores["categories"],
+            "auto_reject":    scores.get("auto_reject", []),
+            "high_risk":      scores.get("high_risk", []),
+            "scored_at":      scores.get("scored_at", ""),
+            "stage_summary":  generate_stage_summary({"name": name, "overall": scores["overall"]}, stage) if stage != "Intake" else "",
+            "stage_history":  history,
+            "extracted_text": "",
             "submitted_at":  base_dt.strftime("%Y-%m-%d"),
             "notes":         "",
         })
@@ -1584,27 +1825,33 @@ elif page == "Submissions":
                 st.error("Idea name is required.")
             else:
                 ftypes = list({f.type.split("/")[-1].upper() for f in (uploaded or [])}) or ["—"]
+                extracted = ""
+                if uploaded:
+                    with st.spinner("Extracting file content…"):
+                        extracted = extract_file_text(uploaded)
                 sid = f"FOS-{st.session_state.next_id}"
                 st.session_state.next_id += 1
                 st.session_state.submissions.append({
-                    "id":            sid,
-                    "name":          idea_name.strip(),
-                    "file_type":     ", ".join(ftypes),
-                    "status":        "New",
-                    "stage":         init_stage,
-                    "overall":       0.0,
-                    "innovation":    0.0,
-                    "feasibility":   0.0,
-                    "categories":    {},
-                    "auto_reject":   [],
-                    "high_risk":     [],
-                    "scored_at":     "",
-                    "stage_summary": "",
-                    "stage_history": [{"stage": init_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")}],
-                    "submitted_at":  datetime.now().strftime("%Y-%m-%d"),
-                    "notes":         notes_txt,
+                    "id":             sid,
+                    "name":           idea_name.strip(),
+                    "file_type":      ", ".join(ftypes),
+                    "status":         "New",
+                    "stage":          init_stage,
+                    "overall":        0.0,
+                    "innovation":     0.0,
+                    "feasibility":    0.0,
+                    "categories":     {},
+                    "auto_reject":    [],
+                    "high_risk":      [],
+                    "scored_at":      "",
+                    "stage_summary":  "",
+                    "stage_history":  [{"stage": init_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")}],
+                    "submitted_at":   datetime.now().strftime("%Y-%m-%d"),
+                    "notes":          notes_txt,
+                    "extracted_text": extracted,
                 })
-                st.success(f"Submission {sid} added.")
+                file_note = f" ({len(uploaded)} file(s) processed)" if uploaded else ""
+                st.success(f"Submission {sid} added{file_note}.")
                 st.rerun()
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
@@ -1624,20 +1871,25 @@ elif page == "Submissions":
         if run_bulk:
             unscored = [s for s in st.session_state.submissions if s["status"] == "New"]
             if unscored:
-                prog = st.progress(0)
-                msg  = st.empty()
+                prog      = st.progress(0)
+                msg       = st.empty()
+                llm_warns = []
                 for i, sub in enumerate(unscored):
+                    mode_label = st.session_state.get("scoring_mode", "Simulated")
                     msg.markdown(
                         f'<div style="font-size:12px;color:#8b949e;padding:4px 0;">'
                         f'🤖 Scoring <strong style="color:#e6edf3">{sub["name"]}</strong> '
-                        f'({i+1}/{len(unscored)})…</div>',
+                        f'({i+1}/{len(unscored)}) — {mode_label} mode…</div>',
                         unsafe_allow_html=True,
                     )
-                    time.sleep(0.6)
-                    sc  = ai_score_submission(sub, rubric)
+                    if mode_label == "Simulated":
+                        time.sleep(0.6)
+                    sc, warn = route_scoring(sub, rubric)
+                    if warn:
+                        llm_warns.append(warn)
                     idx = next(j for j, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                     st.session_state.submissions[idx].update({
-                        "overall":   sc["overall"],
+                        "overall":     sc["overall"],
                         "innovation":  sc["innovation"],
                         "feasibility": sc["feasibility"],
                         "categories":  sc["categories"],
@@ -1648,6 +1900,8 @@ elif page == "Submissions":
                     })
                     prog.progress((i + 1) / len(unscored))
                 msg.empty()
+                if llm_warns:
+                    st.warning(llm_warns[0])
                 n_reject = sum(1 for s in st.session_state.submissions if s.get("auto_reject"))
                 st.success(f"Scored {len(unscored)} submission(s). {n_reject} triggered auto-reject gates.")
                 st.rerun()
@@ -1724,12 +1978,15 @@ elif page == "Submissions":
                 a1, a2, a3 = st.columns(3)
                 with a1:
                     if st.button("Score", key=f"sc_{sub['id']}"):
-                        with st.spinner("Scoring using ForgeOS Extensive Rubric v2…"):
-                            time.sleep(0.8)
-                            sc2 = ai_score_submission(sub, rubric)
+                        mode_label = st.session_state.get("scoring_mode", "Simulated")
+                        spinner_txt = f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"
+                        with st.spinner(spinner_txt):
+                            if mode_label == "Simulated":
+                                time.sleep(0.8)
+                            sc2, warn2 = route_scoring(sub, rubric)
                             idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                             st.session_state.submissions[idx].update({
-                                "overall":    sc2["overall"],
+                                "overall":     sc2["overall"],
                                 "innovation":  sc2["innovation"],
                                 "feasibility": sc2["feasibility"],
                                 "categories":  sc2["categories"],
@@ -1739,7 +1996,8 @@ elif page == "Submissions":
                                 "status":      "Scored",
                             })
                             gate_note = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
-                            st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}")
+                            fallback_note = f" · ⚠ {warn2}" if warn2 else ""
+                            st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}{fallback_note}")
                             st.rerun()
                 with a2:
                     cur_stage_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
@@ -1980,12 +2238,14 @@ elif page == "Pipeline":
                     btn_score, btn_adv = st.columns(2)
                     with btn_score:
                         if st.button("Score", key=f"pipe_sc_{sub['id']}"):
-                            with st.spinner("Scoring using ForgeOS Extensive Rubric v2…"):
-                                time.sleep(0.8)
-                                sc2 = ai_score_submission(sub, rubric)
+                            mode_label = st.session_state.get("scoring_mode", "Simulated")
+                            with st.spinner(f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"):
+                                if mode_label == "Simulated":
+                                    time.sleep(0.8)
+                                sc2, warn2 = route_scoring(sub, rubric)
                                 idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                                 st.session_state.submissions[idx].update({
-                                    "overall":    sc2["overall"],
+                                    "overall":     sc2["overall"],
                                     "innovation":  sc2["innovation"],
                                     "feasibility": sc2["feasibility"],
                                     "categories":  sc2["categories"],
@@ -1994,8 +2254,9 @@ elif page == "Pipeline":
                                     "scored_at":   sc2["scored_at"],
                                     "status":      "Scored",
                                 })
-                                gate_note = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
-                                st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}")
+                                gate_note  = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
+                                fallback_note = f" · ⚠ {warn2}" if warn2 else ""
+                                st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}{fallback_note}")
                                 st.rerun()
                     with btn_adv:
                         if st.button("Advance →", key=f"pipe_adv_{sub['id']}", disabled=at_last):
@@ -2119,6 +2380,49 @@ elif page == "Rubric Settings":
               <div class="stat-value" style="color:#f85149">{len(gating)}</div>
               <div class="stat-sub">Gating rules active</div>
             </div>""", unsafe_allow_html=True)
+
+        # ── Scoring Mode ──────────────────────────────────────────────────────
+        st.markdown('<div class="section-hd">Scoring Mode</div>', unsafe_allow_html=True)
+
+        llm_note = ""
+        if not _LLM_AVAILABLE:
+            llm_note = " (requires FORGE_LLM_API_KEY)"
+
+        mode_options = ["Simulated", f"Real LLM{llm_note}"]
+        current_mode = st.session_state.get("scoring_mode", "Simulated")
+        current_idx  = 1 if current_mode == "Real LLM" else 0
+
+        scol1, scol2 = st.columns([2, 3])
+        with scol1:
+            chosen = st.radio(
+                "scoring_mode_radio",
+                options=mode_options,
+                index=current_idx,
+                label_visibility="collapsed",
+                help="Simulated uses keyword-weighted heuristics. Real LLM sends data to the configured AI endpoint.",
+            )
+            new_mode = "Real LLM" if chosen.startswith("Real LLM") else "Simulated"
+            if new_mode != current_mode:
+                st.session_state.scoring_mode = new_mode
+                st.rerun()
+        with scol2:
+            if new_mode == "Real LLM":
+                if _LLM_AVAILABLE:
+                    st.markdown(f"""
+                    <div style="background:#0d2b1a;border:1px solid #238636;border-radius:8px;padding:10px 14px;">
+                      <div style="font-size:11px;font-weight:700;color:#3fb950;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Real LLM Active</div>
+                      <div style="font-size:12px;color:#b0b8c4;">Model: <code style="color:#58a6ff;">{_FORGE_LLM_MODEL}</code></div>
+                      <div style="font-size:12px;color:#b0b8c4;">Endpoint: <code style="color:#58a6ff;">{_FORGE_LLM_BASE_URL}</code></div>
+                      <div style="font-size:11px;color:#8b949e;margin-top:4px;">API key detected · Uploaded PDFs are extracted and sent as context.</div>
+                    </div>""", unsafe_allow_html=True)
+                else:
+                    st.warning("FORGE_LLM_API_KEY is not set. Set this environment variable to enable real LLM scoring. Scoring will fall back to Simulated mode.", icon="⚠️")
+            else:
+                st.markdown("""
+                <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:10px 14px;">
+                  <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Simulated Mode</div>
+                  <div style="font-size:12px;color:#8b949e;">Uses keyword signals and rubric-anchored heuristics. Reproducible — same idea always scores the same. No API key required.</div>
+                </div>""", unsafe_allow_html=True)
 
         # ── Tabs ──────────────────────────────────────────────────────────────
         tab_crit, tab_gate, tab_chart, tab_json = st.tabs(["Criteria", "Gating Rules", "Weight Chart", "Raw JSON"])
