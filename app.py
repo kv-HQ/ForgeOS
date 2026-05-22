@@ -586,120 +586,233 @@ def make_gauge(score, title="", height=150):
     )
     return fig
 
+def _criterion_justification(key, band, display_name, score_10, anchor_txt, rng):
+    """
+    Return a criterion-specific, idea-aware justification that references the
+    rubric anchor wording and the submission name. Two variants per (criterion,
+    band) so the seeded RNG creates variety across ideas.
+    """
+    n = display_name  # already title-cased by caller
+    s = score_10
+    a = anchor_txt
+
+    CRIT_JUST = {
+        "Innovation & Novelty": {
+            "1-3": [
+                f"'{n}' scores {s}/10 on innovation. Rubric anchor: \"{a}\". No novel material, process, or IP pathway is evident — the concept mirrors existing market solutions without a defensible differentiation vector. Prior-art analysis is absent.",
+                f"Innovation claim for '{n}' is unsupported ({s}/10). Anchor: \"{a}\". The submission describes incremental improvements at best; no breakthrough in materials, design IP, or manufacturing process could be identified against the rubric sub-factors.",
+            ],
+            "4-6": [
+                f"'{n}' achieves moderate innovation ({s}/10). Anchor: \"{a}\". Some unique elements are present, but IP defensibility is thin and head-to-head competitors are not clearly outpaced. A stronger prior-art map and IP landscape review would materially lift this score.",
+                f"Innovation for '{n}' is promising but incomplete ({s}/10). Anchor: \"{a}\". Differentiation is real but could erode quickly without clearer IP strategy or a harder-to-replicate manufacturing process advantage.",
+            ],
+            "7-10": [
+                f"'{n}' demonstrates strong innovation ({s}/10). Anchor: \"{a}\". Breakthrough positioning across material, design, or process is identifiable, and an IP moat is credible. This submission outperforms peer ideas on novelty and competitive defensibility.",
+                f"Exceptional innovation trajectory for '{n}' ({s}/10). Anchor: \"{a}\". The concept exhibits genuine differentiation — whether in novel materials, proprietary manufacturing steps, or design IP — that creates a meaningful barrier to fast-follow competition.",
+            ],
+        },
+        "Market Potential & Saturation": {
+            "1-3": [
+                f"Market case for '{n}' is weak ({s}/10). Anchor: \"{a}\". Market data is absent or implausible; the saturation level is not addressed and no validated demand signal is present. TAM/SAM/SOM claims are either missing or wildly optimistic.",
+                f"'{n}' fails to establish a compelling market thesis ({s}/10). Anchor: \"{a}\". The target segment is either too small, too saturated, or the submission conflates total market size with reachable opportunity.",
+            ],
+            "4-6": [
+                f"'{n}' targets a viable but competitive market ({s}/10). Anchor: \"{a}\". Demand signals exist but TAM/SAM/SOM projections need substantiation, and competitive positioning — especially against incumbents — requires much sharper articulation.",
+                f"Market potential for '{n}' is moderate ({s}/10). Anchor: \"{a}\". Growth trends are broadly supportive, but the submission does not convincingly show how the product carves out sustainable share in a crowded field.",
+            ],
+            "7-10": [
+                f"'{n}' addresses a large and validated market ({s}/10). Anchor: \"{a}\". Market sizing is credible, the unmet need is clearly articulated with customer evidence, and growth trends strongly support the timing of entry.",
+                f"Strong market case for '{n}' ({s}/10). Anchor: \"{a}\". The submission identifies a sizeable, growing segment with documented demand gaps, and positions the product to capture meaningful share without relying on overly optimistic projections.",
+            ],
+        },
+        "Technical & Manufacturing Feasibility": {
+            "1-3": [
+                f"'{n}' is a pure concept at this stage ({s}/10). Anchor: \"{a}\". No manufacturing path, BOM estimate, or supplier context is provided. Scalability from prototype to production is entirely unaddressed — a critical gap at any pipeline stage.",
+                f"Manufacturing feasibility for '{n}' is critically under-evidenced ({s}/10). Anchor: \"{a}\". The submission does not engage with cost structure, supply chain complexity, or process constraints that would allow a feasibility judgement.",
+            ],
+            "4-6": [
+                f"'{n}' shows basic technical viability but scaling is unclear ({s}/10). Anchor: \"{a}\". A prototype pathway exists, but the BOM, supplier network, and cost-at-volume picture are incomplete. Significant engineering and supply chain work remains before production is realistic.",
+                f"Technical feasibility for '{n}' is partially established ({s}/10). Anchor: \"{a}\". Core mechanics are plausible, but the submission lacks detail on manufacturing process, tooling costs, and supply chain resilience that would de-risk a production commitment.",
+            ],
+            "7-10": [
+                f"'{n}' demonstrates a clear path to production ({s}/10). Anchor: \"{a}\". BOM realism, supplier references, and scalable process design are all credibly addressed. Cost structure at volume is defensible and the supply chain risk profile is manageable.",
+                f"Excellent manufacturing feasibility for '{n}' ({s}/10). Anchor: \"{a}\". The submission provides a convincing factory-floor-to-shelf narrative with realistic cost models, identified supply partners, and a scalable process that survives scrutiny.",
+            ],
+        },
+        "Sustainability & Circularity": {
+            "1-3": [
+                f"'{n}' shows negligible sustainability thinking ({s}/10). Anchor: \"{a}\". No lifecycle consideration, material certification, or circular design element is present. The submission risks greenwashing exposure without measurable environmental metrics.",
+                f"Sustainability score for '{n}' is critically low ({s}/10). Anchor: \"{a}\". Material choices and end-of-life pathways are not addressed. Without LCA evidence or recyclability data, the product cannot credibly claim environmental positioning.",
+            ],
+            "4-6": [
+                f"'{n}' makes basic sustainability efforts but gaps remain ({s}/10). Anchor: \"{a}\". Some eco-conscious language is present, but measurable metrics, certifications, and a genuine circular design strategy are missing. Greenwashing risk is moderate.",
+                f"Sustainability approach for '{n}' is partial ({s}/10). Anchor: \"{a}\". Intentions are visible but the submission does not quantify carbon footprint, recyclability, or ethical sourcing in a way that stands up to third-party scrutiny.",
+            ],
+            "7-10": [
+                f"'{n}' demonstrates strong circular design thinking ({s}/10). Anchor: \"{a}\". Material choices, end-of-life pathways, and measurable impact reduction are all credibly addressed. Certifications or LCA references make environmental claims verifiable.",
+                f"Sustainability profile for '{n}' is compelling ({s}/10). Anchor: \"{a}\". The submission embeds circularity into the product architecture — not as a marketing overlay but as a structural design principle — with quantifiable environmental commitments.",
+            ],
+        },
+        "Regulatory Compliance & Risk": {
+            "1-3": [
+                f"'{n}' does not address regulatory requirements ({s}/10). Anchor: \"{a}\". Key standards, certifications, and compliance pathways are absent. This is a critical blocker — without a regulatory roadmap the product cannot reach market in most jurisdictions.",
+                f"Regulatory risk for '{n}' is high ({s}/10). Anchor: \"{a}\". No evidence of awareness of relevant directives, safety testing requirements, or certification timelines. This gap could significantly delay or prevent market entry.",
+            ],
+            "4-6": [
+                f"'{n}' has basic regulatory awareness but an incomplete compliance plan ({s}/10). Anchor: \"{a}\". Relevant regulations are acknowledged, but the roadmap to certification — including timelines, costs, and responsible parties — is underdeveloped.",
+                f"Compliance approach for '{n}' is nascent ({s}/10). Anchor: \"{a}\". The submission identifies the regulatory landscape at a surface level but does not demonstrate a structured path through testing, approval, and ongoing compliance management.",
+            ],
+            "7-10": [
+                f"'{n}' presents a clear regulatory roadmap ({s}/10). Anchor: \"{a}\". Relevant standards are identified, certification pathways are mapped, and risk mitigation measures are credible. Compliance is treated as a strategic asset, not an afterthought.",
+                f"Strong compliance posture for '{n}' ({s}/10). Anchor: \"{a}\". The submission demonstrates proactive regulatory engagement — standards are named, testing protocols are outlined, and the timeline to market approval is realistic and risk-adjusted.",
+            ],
+        },
+        "Team & Execution Capability": {
+            "1-3": [
+                f"Team behind '{n}' lacks the credentials to execute ({s}/10). Anchor: \"{a}\". No relevant physical-goods experience, manufacturing expertise, or supply chain relationships are demonstrated. Key functional roles appear unfilled with no hiring plan.",
+                f"Execution capability for '{n}' is critically under-evidenced ({s}/10). Anchor: \"{a}\". The submission does not establish credibility in the domain — no track record in bringing comparable physical products to market is presented.",
+            ],
+            "4-6": [
+                f"'{n}' has a partially capable team ({s}/10). Anchor: \"{a}\". Some relevant expertise is present, but critical capability gaps exist — particularly in manufacturing operations, regulatory affairs, or commercial channels. An explicit hiring roadmap would strengthen confidence.",
+                f"Team for '{n}' shows promise with identified gaps ({s}/10). Anchor: \"{a}\". Founding competencies are present in some domains but the submission acknowledges — or ignores — functional holes that will create execution risk at scale.",
+            ],
+            "7-10": [
+                f"'{n}' is backed by a strong, balanced execution team ({s}/10). Anchor: \"{a}\". Demonstrated track record in physical goods, manufacturing partnerships, and commercial channels is clearly evidenced. The team has credibly done this before.",
+                f"Excellent team capability for '{n}' ({s}/10). Anchor: \"{a}\". The founders bring domain-specific depth — engineering, operations, and commercial roles are all credibly covered, with a track record that validates their ability to navigate production and go-to-market.",
+            ],
+        },
+        "Business Model & Commercial Viability": {
+            "1-3": [
+                f"Commercial case for '{n}' is underdeveloped ({s}/10). Anchor: \"{a}\". No clear revenue model, pricing rationale, or unit economics are presented. The path from concept to profitable operation is entirely hypothetical.",
+                f"'{n}' lacks a viable business model ({s}/10). Anchor: \"{a}\". Revenue streams are vague, margin structure is absent, and the go-to-market plan does not establish how the product reaches paying customers at commercially viable volumes.",
+            ],
+            "4-6": [
+                f"'{n}' has a basic but unproven commercial model ({s}/10). Anchor: \"{a}\". Revenue logic is present, but unit economics are not fully worked through and the go-to-market approach lacks channel specificity. Early traction or letters of intent would materially strengthen this.",
+                f"Business model for '{n}' is directionally sound but thin ({s}/10). Anchor: \"{a}\". Pricing assumptions are broadly reasonable, but margin analysis at target volumes and channel cost structure are not sufficiently evidenced to build high commercial confidence.",
+            ],
+            "7-10": [
+                f"'{n}' presents a clear path to profitable scaling ({s}/10). Anchor: \"{a}\". Unit economics are realistic, pricing is validated against customer willingness to pay, and the go-to-market plan is specific enough to be credible with well-defined channel partners.",
+                f"Strong commercial viability for '{n}' ({s}/10). Anchor: \"{a}\". The revenue model is coherent, margins are defensible at target volumes, and early market signals — through pilots, LOIs, or channel relationships — reduce execution risk significantly.",
+            ],
+        },
+        "Evidence Quality & Realism": {
+            "1-3": [
+                f"'{n}' is heavy on aspiration, light on evidence ({s}/10). Anchor: \"{a}\". Claims throughout the submission are unsupported by data, references, or validated tests. The overall picture is optimistic but not credible against rigorous rubric scrutiny.",
+                f"Evidence quality for '{n}' is critically low ({s}/10). Anchor: \"{a}\". Contradictory statements and unsubstantiated projections undermine confidence across all other criteria. The submission reads as a pitch narrative rather than a grounded innovation case.",
+            ],
+            "4-6": [
+                f"'{n}' provides partial evidence with notable gaps ({s}/10). Anchor: \"{a}\". Some claims are substantiated, but key assertions — particularly around market size, manufacturing costs, and technical performance — rest on assumptions rather than data.",
+                f"Realism for '{n}' is moderate ({s}/10). Anchor: \"{a}\". The submission is internally consistent in places but uneven — well-evidenced sections sit alongside claims that are speculative or that rely on best-case scenario projections.",
+            ],
+            "7-10": [
+                f"'{n}' is well-supported, consistent, and realistic ({s}/10). Anchor: \"{a}\". Evidence is cited throughout — market data, technical references, team credentials, and financial assumptions are all grounded and internally consistent. Confidence in this submission is high.",
+                f"Excellent evidence quality for '{n}' ({s}/10). Anchor: \"{a}\". The submission demonstrates disciplined realism — projections are conservative, assumptions are made explicit, and supporting data sources are traceable. This is the standard against which peer submissions should be benchmarked.",
+            ],
+        },
+    }
+
+    # Fall back to generic if criterion name not found (future rubric additions)
+    generic = {
+        "1-3": [f"'{n}' scores {s}/10 — below threshold. Rubric anchor: \"{a}\". Critical gaps identified; immediate remediation required before advancing."],
+        "4-6": [f"'{n}' scores {s}/10 — moderate. Rubric anchor: \"{a}\". Partial evidence present; deeper validation recommended across key sub-factors."],
+        "7-10": [f"'{n}' scores {s}/10 — strong. Rubric anchor: \"{a}\". Submission exceeds sector benchmarks; clear validation pathway demonstrated."],
+    }
+    options = CRIT_JUST.get(key, generic).get(band, generic[band])
+    return rng.choice(options)
+
+
 def ai_score_submission(submission, rubric_data):
     """
-    Simulate a chain-of-thought AI scoring engine.
+    Chain-of-thought AI scoring engine.
 
     Reads all 8 criteria from rubric.json, derives context signals from the
-    submission name/notes, applies gating rules, and returns a fully structured
-    breakdown with per-criterion score (1-10), justification, evidence level,
-    triggered red flags, and gating warnings.
+    submission name/notes using keyword matching, then produces per-criterion
+    scores (1-10) with idea-specific, rubric-anchored justifications.
+    Applies gating rules and returns a fully structured breakdown.
 
-    Swap the internals for a real LLM call when the API is connected.
+    → Swap the RNG internals for a real LLM call when the API is connected.
     """
-    name  = submission.get("name",  "").lower()
-    notes = submission.get("notes", "").lower()
-    text  = name + " " + notes
+    name         = submission.get("name",  "").lower()
+    notes        = submission.get("notes", "").lower()
+    text         = name + " " + notes
+    display_name = submission.get("name", "This submission").title()
 
     # Seed RNG on submission name → reproducible scores for the same idea
     seed = int(hashlib.md5(name.encode()).hexdigest()[:8], 16)
     rng  = random.Random(seed)
 
-    criteria     = rubric_data.get("criteria", [])
-    gating_rules = rubric_data.get("gating_rules", [])
+    criteria = rubric_data.get("criteria", [])
 
-    # ── Keyword signals (positive / negative) per criterion ──────────────────
-    # Words that appear in the submission text boost or penalise scores.
+    # ── Keyword signals per criterion (positive boost / negative penalty) ─────
     SIGNALS = {
         "Innovation & Novelty": (
             ["breakthrough", "novel", "patent", "unique", "first", "bio", "mycelium",
-             "self-heal", "nano", "smart", "micro", "carbon", "polymer", "proprietary"],
-            ["me-too", "copy", "basic", "simple", "existing", "commodity"],
+             "self-heal", "nano", "smart", "micro", "carbon", "polymer", "proprietary",
+             "advanced", "new material", "new process"],
+            ["me-too", "copy", "basic", "simple", "existing", "commodity", "standard"],
         ),
         "Market Potential & Saturation": (
             ["market", "demand", "customer", "growth", "billion", "segment",
-             "untapped", "commercial", "b2b", "validated", "gap"],
-            ["saturated", "small market", "niche", "declining", "crowded"],
+             "untapped", "commercial", "b2b", "validated", "gap", "underserved"],
+            ["saturated", "small market", "niche only", "declining", "crowded"],
         ),
         "Technical & Manufacturing Feasibility": (
             ["prototype", "manufacturing", "supply chain", "bom", "scalable",
              "production", "material", "motor", "thermal", "compression",
-             "insulation", "packaging", "exoskeleton", "foam", "coating"],
-            ["concept only", "theoretical", "unclear", "impossible", "unproven"],
+             "insulation", "packaging", "exoskeleton", "foam", "coating", "tooling"],
+            ["concept only", "theoretical", "unproven at scale", "unclear process"],
         ),
         "Sustainability & Circularity": (
             ["biodegradable", "sustainable", "circular", "recyclable", "eco",
-             "mycelium", "bio", "carbon", "lca", "ethical", "packaging", "renewable"],
-            ["plastic", "toxic", "greenwash", "no certification", "virgin"],
+             "mycelium", "bio", "carbon", "lca", "ethical", "renewable", "compostable"],
+            ["virgin plastic", "toxic", "greenwash", "no certification", "landfill"],
         ),
         "Regulatory Compliance & Risk": (
             ["compliance", "certified", "fda", "ce", "regulatory", "standard",
-             "iso", "approval", "testing", "safety"],
-            ["unregulated", "risky", "no compliance", "illegal", "unapproved"],
+             "iso", "approval", "testing", "safety", "directive", "reach"],
+            ["unregulated", "no compliance plan", "unapproved"],
         ),
         "Team & Execution Capability": (
             ["team", "experience", "expert", "founder", "engineer",
-             "track record", "proven", "background", "led", "built"],
-            ["no team", "solo", "inexperienced", "first time", "no experience"],
+             "track record", "proven", "background", "led", "built", "shipped"],
+            ["no team", "inexperienced", "first time", "no relevant experience"],
         ),
         "Business Model & Commercial Viability": (
             ["revenue", "profit", "margin", "pricing", "unit economics",
-             "commercial", "scaling", "traction", "contract", "letters of intent"],
-            ["no revenue", "unclear model", "free", "give away", "donation"],
+             "commercial", "traction", "contract", "letters of intent", "b2b", "channel"],
+            ["no revenue model", "unclear model", "free only", "donated"],
         ),
         "Evidence Quality & Realism": (
             ["data", "research", "study", "validated", "tested", "evidence",
-             "pilot", "prototype", "results", "measured", "demonstrated"],
-            ["vague", "hype", "could be", "imagine", "we believe", "guess"],
+             "pilot", "prototype", "results", "measured", "demonstrated", "cited"],
+            ["vague", "hype", "we believe", "speculative", "unsubstantiated"],
         ),
-    }
-
-    # ── Justification templates per anchor band ───────────────────────────────
-    JUSTIFICATIONS = {
-        "1-3": [
-            "Insufficient evidence provided; claims are unsubstantiated against rubric anchors.",
-            "Evaluation finds critical gaps. Submission falls below minimum threshold for this criterion.",
-            "Significant weaknesses identified. Immediate remediation required before advancing.",
-        ],
-        "4-6": [
-            "Moderate performance with identifiable gaps. Partial evidence present but not fully compelling.",
-            "Promising signals, though key sub-factors lack depth. Further validation recommended.",
-            "Meets baseline expectations but requires strengthening to unlock higher pipeline stages.",
-        ],
-        "7-10": [
-            "Strong, well-evidenced performance. Submission exceeds sector benchmarks for this criterion.",
-            "Compelling approach with clear validation pathway. Scored highly against all sub-factors.",
-            "Robust evidence base. Demonstrates clear competitive advantage relative to peer submissions.",
-        ],
     }
 
     scored_criteria = {}
 
     for crit in criteria:
-        key       = crit["criterion"]
-        weight    = crit.get("weight", 10)
-        anchors   = crit.get("scoring_anchors", {})
-        rf_list   = crit.get("red_flags", [])
-        sub_facs  = crit.get("sub_factors", [])
+        key          = crit["criterion"]
+        weight       = crit.get("weight", 10)
+        anchors      = crit.get("scoring_anchors", {})
+        rf_list      = crit.get("red_flags", [])
+        sub_facs     = crit.get("sub_factors", [])
         evidence_req = crit.get("evidence_required", "")
 
-        # Base score (seeded, biased toward mid-range for realism)
-        base = rng.randint(45, 78)
+        # Base score biased toward mid-range; seeded for reproducibility
+        base = rng.randint(48, 76)
 
-        # Apply keyword signals
+        # Keyword signal adjustment
         pos_words, neg_words = SIGNALS.get(key, ([], []))
-        boost   = sum(3 for w in pos_words if w in text)
-        penalty = sum(5 for w in neg_words if w in text)
-        boost   = min(boost, 20)
-        penalty = min(penalty, 22)
+        boost   = min(sum(3 for w in pos_words if w in text), 21)
+        penalty = min(sum(5 for w in neg_words if w in text), 24)
+        raw     = max(10, min(95, base + boost - penalty))
 
-        raw = max(10, min(95, base + boost - penalty))
-
-        # Convert to 1-10 scale
+        # 1-10 scale
         score_10 = round(raw / 10.0, 1)
         score_10 = max(1.0, min(10.0, score_10))
 
-        # Determine anchor band
+        # Anchor band
         if score_10 <= 3:
             band       = "1-3"
             anchor_txt = anchors.get("1-3", "Below threshold")
@@ -710,10 +823,10 @@ def ai_score_submission(submission, rubric_data):
             band       = "7-10"
             anchor_txt = anchors.get("7-10", "Strong")
 
-        justification   = rng.choice(JUSTIFICATIONS[band])
-        evidence_level  = "Sufficient" if score_10 >= 6 else ("Partial" if score_10 >= 4 else "Insufficient")
+        justification  = _criterion_justification(key, band, display_name, score_10, anchor_txt, rng)
+        evidence_level = "Sufficient" if score_10 >= 6 else ("Partial" if score_10 >= 4 else "Insufficient")
 
-        # Detect triggered red flags
+        # Detect red flags triggered by submission text
         triggered_flags = [
             rf for rf in rf_list
             if any(w in text for w in rf.lower().split() if len(w) > 4)
@@ -722,7 +835,7 @@ def ai_score_submission(submission, rubric_data):
         scored_criteria[key] = {
             "name":          key,
             "score_10":      score_10,
-            "score":         round(score_10 * 10),   # 0-100 for gauges/progress
+            "score":         round(score_10 * 10),  # 0-100 for gauges/progress bars
             "weight":        weight,
             "weight_frac":   weight / 100.0,
             "anchor_band":   band,
@@ -742,24 +855,20 @@ def ai_score_submission(submission, rubric_data):
     )
     overall = min(overall, 100.0)
 
-    # ── Apply gating rules from rubric ────────────────────────────────────────
+    # ── Gating rules (parsed from rubric) ────────────────────────────────────
     GATE_MAP = {
         "Innovation & Novelty":                  (6.0, "auto-reject"),
         "Technical & Manufacturing Feasibility": (6.0, "auto-reject"),
         "Sustainability & Circularity":          (5.0, "high-risk"),
         "Evidence Quality & Realism":            (4.0, "auto-reject"),
     }
-    auto_reject_flags = []
-    high_risk_flags   = []
+    auto_reject_flags, high_risk_flags = [], []
     for crit_name, (threshold, action) in GATE_MAP.items():
         if crit_name in scored_criteria:
             s = scored_criteria[crit_name]["score_10"]
             if s < threshold:
-                msg = f"{crit_name}: scored {s:.1f}/10 (gate threshold: {threshold}/10)"
-                if action == "auto-reject":
-                    auto_reject_flags.append(msg)
-                else:
-                    high_risk_flags.append(msg)
+                msg = f"{crit_name}: {s:.1f}/10 — below gate threshold of {threshold}/10"
+                (auto_reject_flags if action == "auto-reject" else high_risk_flags).append(msg)
 
     return {
         "overall":     overall,
@@ -774,47 +883,47 @@ def ai_score_submission(submission, rubric_data):
 
 def generate_stage_summary(submission, new_stage):
     """
-    Simulate an AI-generated advancement note when moving a submission to the
-    next pipeline stage. Returns a short, professional summary string.
+    Simulate an AI-generated advancement note when a submission moves to the
+    next pipeline stage. Returns a realistic, idea-specific operational summary.
     """
-    name = submission.get("name", "this idea")
+    name  = submission.get("name", "this idea")
     score = submission.get("overall", 0)
-    score_txt = f"(overall score: {score})" if score > 0 else ""
+    sc    = f" — ForgeOS score: {score}/100" if score > 0 else ""
 
     TEMPLATES = {
         "Concept": [
-            f"Concept review initiated for '{name}' {score_txt}. Key differentiation factors identified; recommend deep-dive on market sizing and IP defensibility.",
-            f"'{name}' enters concept stage {score_txt}. Innovation profile is distinct — next step is structured scoring against all rubric criteria.",
-            f"Concept stage activated. Preliminary assessment of '{name}' shows promise; evidence package flagged for detailed peer review.",
+            f"Concept review opened for '{name}'{sc}. The innovation profile shows early differentiation; the next critical actions are a structured prior-art review, TAM/SAM/SOM validation, and a first-pass IP landscape assessment. Assign a concept owner and set a 2-week gate review.",
+            f"'{name}' enters Concept stage{sc}. Initial rubric signals are promising — recommend a 5-day deep-dive sprint covering: (1) competitive positioning map, (2) material/process novelty assessment, and (3) a first-cut BOM to anchor feasibility assumptions.",
+            f"Concept stage activated for '{name}'{sc}. Evidence package flagged for peer review. Priority gap: strengthen the market validation narrative with at least 3 customer interviews before the next stage gate. IP filing timeline to be confirmed with counsel.",
         ],
         "Validation": [
-            f"Technical and market validation commenced for '{name}' {score_txt}. BOM review and supplier qualification are the critical next actions.",
-            f"'{name}' advances to validation {score_txt}. Customer discovery interviews and regulatory pathway mapping scheduled this sprint.",
-            f"Validation stage active. Engineering deep-dive and LCA review required for '{name}'; sustainability claims need third-party verification.",
+            f"Technical and market validation commenced for '{name}'{sc}. Critical path items: BOM review with 2 qualified suppliers, customer discovery interviews (target: 10 B2B decision-makers), and initial regulatory pathway mapping. Stage gate: 4 weeks.",
+            f"'{name}' advances to Validation{sc}. Engineering deep-dive and LCA review are the priority workstreams. Sustainability claims require third-party data validation — greenwashing risk flag raised during concept review. Compliance counsel engaged.",
+            f"Validation stage active for '{name}'{sc}. Manufacturing feasibility is the key unknown: commission a first-article cost estimate and identify 3 potential contract manufacturers. Market validation to run in parallel with a structured demand-testing experiment.",
         ],
         "Prototyping": [
-            f"Prototype development phase initiated for '{name}' {score_txt}. First-article testing targets set against rubric feasibility benchmarks.",
-            f"'{name}' enters rapid prototyping {score_txt}. Manufacturing partner shortlisted; tooling cost review and materials sourcing in progress.",
-            f"Prototyping sprint begins for '{name}' {score_txt}. Weekly build-test-learn cycles scheduled; target prototype completion in 8 weeks.",
+            f"Prototype development initiated for '{name}'{sc}. Manufacturing partner shortlisted from Validation stage. First-article testing targets set: dimensional accuracy ±0.5mm, material spec confirmed, cost-at-volume within 15% of model. 8-week sprint cadence with weekly build-test-learn cycles.",
+            f"'{name}' enters Rapid Prototyping{sc}. Tooling cost review approved; materials sourcing order placed with primary supplier. Prototype spec sheet attached to this record. Key risk: lead time on proprietary components — mitigation: dual-source strategy activated.",
+            f"Prototyping sprint live for '{name}'{sc}. Cross-functional team assembled: product engineering, industrial design, and supply chain. Milestone 1 (functional prototype): Week 4. Milestone 2 (user testing prototype): Week 8. Go/no-go decision at Week 9 gate.",
         ],
         "Market Test": [
-            f"Market test phase launched for '{name}' {score_txt}. Beta cohort of 50 early adopters identified; NPS and retention tracking activated.",
-            f"'{name}' enters limited market release {score_txt}. Channel partnerships under evaluation; pricing model A/B tested in pilot region.",
-            f"Market test initiated for '{name}' {score_txt}. Real-world performance data will inform the full-scale production decision.",
+            f"Market test phase launched for '{name}'{sc}. Beta cohort of 50 early adopters identified across 2 target segments. NPS baseline set; return rate and unit sell-through tracked weekly. Pricing model A/B tested: premium vs value anchor in pilot region. Results review at 6-week mark.",
+            f"'{name}' enters limited market release{sc}. Channel partnership finalised with regional distributor. SKU count limited to 1 hero variant for test — learnings will inform range extension decisions. Real-world performance data will be the primary input for the full production go/no-go.",
+            f"Market test initiated for '{name}'{sc}. E-commerce pilot live with a controlled ad spend of $5K/month. Target metrics: CAC < $40, conversion rate > 2.5%, repeat purchase within 60 days. Qualitative feedback loop via post-purchase survey activated. Stage review at 8 weeks.",
         ],
         "Scaling": [
-            f"Scaling phase activated for '{name}' {score_txt}. Supply chain hardening and volume pricing negotiations commenced.",
-            f"'{name}' approved for full production ramp {score_txt}. QMS deployment and logistics optimisation are sprint priorities.",
-            f"Scaling stage begun for '{name}' {score_txt}. Inventory build plan finalised; channel expansion into 3 new territories approved.",
+            f"Scaling phase activated for '{name}'{sc}. Minimum order quantities confirmed with primary manufacturer; volume pricing locked at target margin. Supply chain hardening in progress: safety stock model built, 2nd-tier supplier qualified. QMS documentation initiated.",
+            f"'{name}' approved for full production ramp{sc}. Inventory build plan: 3-month rolling forecast with 4-week safety buffer. Channel expansion into 3 new territories approved — logistics and customs compliance review completed. Marketing asset library handed to growth team.",
+            f"Scaling stage live for '{name}'{sc}. Commercial ops handover complete. Demand planning model updated with real market test sell-through data. Key focus: maintaining quality at volume — inline QC checkpoints inserted at 3 production milestones. Weekly operations review commenced.",
         ],
         "Monitoring": [
-            f"Post-launch monitoring active for '{name}' {score_txt}. KPI dashboard live; 90-day performance review scheduled.",
-            f"'{name}' enters live monitoring {score_txt}. Return rate, NPS, and unit economics tracked weekly against targets.",
-            f"Monitoring phase commenced for '{name}' {score_txt}. Customer feedback loops established; continuous improvement backlog created.",
+            f"Post-launch monitoring active for '{name}'{sc}. KPI dashboard live: units sold, return rate, NPS, gross margin, and CAC tracked weekly. 90-day performance review scheduled. Alert thresholds set: return rate > 3% triggers engineering review; NPS < 40 triggers product council.",
+            f"'{name}' enters live monitoring{sc}. Return rate, NPS, and unit economics tracked against targets set at Market Test gate. First monthly business review scheduled. Customer feedback loops formalised: support ticket analysis, review mining, and quarterly user interviews.",
+            f"Monitoring phase commenced for '{name}'{sc}. Continuous improvement backlog created from beta feedback. Product council review quarterly. Innovation pipeline team notified: insights from '{name}' to feed into next-generation concept exploration within 6 months.",
         ],
     }
 
-    options = TEMPLATES.get(new_stage, [f"'{name}' advanced to {new_stage}. Review checklist and assign stage owner."])
+    options = TEMPLATES.get(new_stage, [f"'{name}' advanced to {new_stage}{sc}. Assign a stage owner, review the checklist, and set the next gate date."])
     seed = int(hashlib.md5((name + new_stage).encode()).hexdigest()[:8], 16)
     return random.Random(seed).choice(options)
 
@@ -903,8 +1012,9 @@ with st.sidebar:
             st.warning("Submissions already loaded.")
 
     st.markdown("""
-    <div style="padding: 20px 16px 0 16px;">
-        <div style="font-size:10px;color:#6e7681;">ForgeOS v2.0 · AI Scoring Engine</div>
+    <div style="padding: 20px 16px 8px 16px;border-top:1px solid #21262d;margin-top:12px;">
+        <div style="font-size:11px;font-weight:600;color:#8b949e;">ForgeOS v0.1</div>
+        <div style="font-size:10px;color:#6e7681;margin-top:2px;">Built in 1 day · AI Scoring Engine</div>
     </div>
     """, unsafe_allow_html=True)
 
