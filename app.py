@@ -20,6 +20,35 @@ _FORGE_LLM_BASE_URL = os.environ.get("FORGE_LLM_BASE_URL", "https://api.x.ai/v1"
 _FORGE_LLM_MODEL    = os.environ.get("FORGE_LLM_MODEL", "grok-3")
 _LLM_AVAILABLE      = bool(_FORGE_LLM_API_KEY)   # True only when env var is set
 
+# ─── Persistent key file (never committed — listed in .gitignore) ─────────────
+_KEY_FILE = os.path.join(os.path.dirname(__file__), ".forge_api_key")
+
+
+def _load_saved_key() -> str:
+    """Read the persisted API key from disk. Returns '' if absent or unreadable."""
+    try:
+        with open(_KEY_FILE, "r", encoding="utf-8") as f:
+            return f.read().strip()
+    except (OSError, IOError):
+        return ""
+
+
+def _save_key_to_disk(key: str) -> None:
+    """Write the API key to disk so it survives page refreshes."""
+    try:
+        with open(_KEY_FILE, "w", encoding="utf-8") as f:
+            f.write(key.strip())
+    except (OSError, IOError):
+        pass   # silently ignore (e.g. read-only FS)
+
+
+def _clear_saved_key() -> None:
+    """Delete the persisted key file from disk."""
+    try:
+        os.remove(_KEY_FILE)
+    except (OSError, FileNotFoundError):
+        pass
+
 
 def _effective_llm_key() -> str:
     """Return the API key to use: env var takes priority, then session-entered key."""
@@ -552,7 +581,8 @@ if "flash_msg" not in st.session_state:
 if "scoring_mode" not in st.session_state:
     st.session_state.scoring_mode = "Simulated"
 if "session_llm_key" not in st.session_state:
-    st.session_state.session_llm_key = ""
+    # Load from disk on first run so key survives page refreshes
+    st.session_state.session_llm_key = _load_saved_key()
 
 STAGES = rubric.get("pipeline_stages", [
     {"id": 1, "name": "Intake",       "color": "#6e40c9"},
@@ -2702,39 +2732,78 @@ elif page == "Rubric Settings":
 
         # ── In-app API key entry (shown only when env var is absent) ───────────
         if not _key_from_env:
+            _key_on_disk = bool(_load_saved_key())
+
             st.markdown("""
             <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;
                         padding:14px 16px;margin-bottom:14px;">
               <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;
-                          letter-spacing:0.06em;margin-bottom:6px;">API Key — Session Only</div>
+                          letter-spacing:0.06em;margin-bottom:6px;">API Key</div>
               <div style="font-size:12px;color:#8b949e;margin-bottom:10px;">
-                Paste an OpenAI-compatible API key to enable Real LLM scoring for this session.
-                The key is held in memory only and is never written to disk or sent anywhere except
-                the configured LLM endpoint (<code style="color:#58a6ff;">api.x.ai/v1</code> by default).
+                Paste an OpenAI-compatible API key to enable Real LLM scoring.
+                Use <strong style="color:#e6edf3;">Save key</strong> to remember it across refreshes —
+                it is stored in a local file on this server and never committed to version control.
+                It is only sent to the configured LLM endpoint
+                (<code style="color:#58a6ff;">api.x.ai/v1</code> by default).
               </div>
             </div>""", unsafe_allow_html=True)
 
-            entered_key = st.text_input(
-                "API Key",
-                value=st.session_state.session_llm_key,
-                type="password",
-                placeholder="sk-… or xai-…",
-                label_visibility="collapsed",
-                help="OpenAI-compatible API key. Stored in session memory only — cleared when you close the tab.",
-            )
-            # Persist without rerun so the radio below reflects the new state immediately
+            ki1, ki2 = st.columns([5, 1])
+            with ki1:
+                entered_key = st.text_input(
+                    "API Key",
+                    value=st.session_state.session_llm_key,
+                    type="password",
+                    placeholder="sk-… or xai-…",
+                    label_visibility="collapsed",
+                    help="OpenAI-compatible API key. Click 'Save key' to persist across refreshes.",
+                )
+            with ki2:
+                save_clicked = st.button(
+                    "Save key",
+                    use_container_width=True,
+                    disabled=not entered_key.strip(),
+                    help="Write key to disk so it survives page refreshes.",
+                )
+
+            # Update session state when input changes
             if entered_key != st.session_state.session_llm_key:
                 st.session_state.session_llm_key = entered_key.strip()
                 _key_from_session = bool(st.session_state.session_llm_key)
                 _key_available    = _key_from_session
 
+            # Save to disk when button clicked
+            if save_clicked and entered_key.strip():
+                _save_key_to_disk(entered_key.strip())
+                st.session_state.session_llm_key = entered_key.strip()
+                _key_from_session = True
+                _key_available    = True
+                _key_on_disk      = True
+                st.session_state.flash_msg = ("success", "API key saved — it will be remembered after page refresh.")
+                st.rerun()
+
+            # Status line + clear button
             if _key_from_session:
                 key_preview = st.session_state.session_llm_key[:6] + "••••••••"
-                st.markdown(
-                    f'<div style="font-size:11px;color:#3fb950;margin-top:4px;">'
-                    f'✓ Key entered ({key_preview}) · session only · not persisted</div>',
-                    unsafe_allow_html=True,
+                persist_note = (
+                    "saved to disk · survives refresh"
+                    if _key_on_disk
+                    else "session only · click Save key to persist"
                 )
+                st_row1, st_row2 = st.columns([4, 1])
+                with st_row1:
+                    st.markdown(
+                        f'<div style="font-size:11px;color:#3fb950;margin-top:6px;">'
+                        f'✓ Key active ({key_preview}) · {persist_note}</div>',
+                        unsafe_allow_html=True,
+                    )
+                with st_row2:
+                    if st.button("Clear", help="Remove key from memory and disk.", use_container_width=True):
+                        _clear_saved_key()
+                        st.session_state.session_llm_key = ""
+                        st.session_state.scoring_mode    = "Simulated"
+                        st.session_state.flash_msg = ("info", "API key cleared from memory and disk.")
+                        st.rerun()
             else:
                 st.markdown(
                     '<div style="font-size:11px;color:#6e7681;margin-top:4px;">'

@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# ForgeOS — local secrets (never commit)
+.forge_api_key
