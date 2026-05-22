@@ -5,6 +5,7 @@ import uuid
 import random
 import time
 import hashlib
+import html as _html
 import urllib.request
 import urllib.error
 import threading
@@ -3521,11 +3522,14 @@ elif page == "Pipeline":
         items = stage_map.get(stage["name"], [])
         with col:
             _kb_icon = _KBOARD_ICONS.get(stage["name"], "●")
-            st.markdown(f"""
-            <div class="kanban-col-header">
-                <span class="kanban-col-name" style="color:{stage['color']}">{_kb_icon} {stage['name']}</span>
-                <span class="kanban-count">{len(items)}</span>
-            </div>""", unsafe_allow_html=True)
+            _stage_name_e = _html.escape(stage["name"])
+            st.markdown(
+                f'<div class="kanban-col-header">'
+                f'<span class="kanban-col-name" style="color:{stage["color"]}">{_kb_icon} {_stage_name_e}</span>'
+                f'<span class="kanban-count">{len(items)}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
             if items:
                 for sub in items:
@@ -3544,17 +3548,22 @@ elif page == "Pipeline":
                             f'{blabel}</span>'
                         )
 
-                    st.markdown(f"""
-                    <div class="kanban-card">
-                        <div class="kanban-card-title">{sub['name']}</div>
-                        <div class="kanban-card-meta" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
-                            <span class="forge-id" style="font-size:10px;">{sub['id']}</span>
-                            {score_badge_html}{fb_html}
-                        </div>
-                        <div style="margin-top:6px;">
-                            <span class="pill {pc}" style="font-size:10px;">{sub['status']}</span>
-                        </div>
-                    </div>""", unsafe_allow_html=True)
+                    _card_name   = _html.escape(sub['name'])
+                    _card_id     = _html.escape(sub['id'])
+                    _card_status = _html.escape(sub['status'])
+                    _card_html = (
+                        f'<div class="kanban-card">'
+                        f'<div class="kanban-card-title">{_card_name}</div>'
+                        f'<div class="kanban-card-meta">'
+                        f'<span class="forge-id" style="font-size:10px;">{_card_id}</span>'
+                        f'{score_badge_html}{fb_html}'
+                        f'</div>'
+                        f'<div style="margin-top:6px;">'
+                        f'<span class="pill {pc}" style="font-size:10px;">{_card_status}</span>'
+                        f'</div>'
+                        f'</div>'
+                    )
+                    st.markdown(_card_html, unsafe_allow_html=True)
 
                     # ── Inline action buttons ───────────────────────────────
                     cur_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
