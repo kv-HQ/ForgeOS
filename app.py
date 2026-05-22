@@ -558,6 +558,25 @@ def pill_class(status):
         "Rejected": "pill-rejected",
     }.get(status, "pill-new")
 
+def forge_badge(sub):
+    """
+    Return (label, text_color, bg_color) for the ForgeOS AI quality badge.
+    Derived from gating flags and overall score.
+    Returns (None, None, None) when the submission is unscored.
+    """
+    if sub.get("auto_reject"):
+        return "Auto-Reject", "#f85149", "#2b0f0f"
+    if sub.get("high_risk"):
+        return "High Risk",   "#d29922", "#2b1f05"
+    score = sub.get("overall", 0)
+    if score >= THRESHOLDS["green"]:
+        return "Strong",      "#3fb950", "#0d2b1a"
+    if score >= THRESHOLDS["yellow"]:
+        return "Promising",   "#58a6ff", "#0c1e35"
+    if score > 0:
+        return "Needs Work",  "#8b949e", "#1c2128"
+    return None, None, None
+
 def make_gauge(score, title="", height=150):
     color = score_hex(score)
     fig = go.Figure(go.Indicator(
@@ -949,6 +968,14 @@ def add_demo_submissions():
                 "categories": {}, "auto_reject": [], "high_risk": [], "scored_at": "",
             }
         days_ago = random.randint(1, 45)
+        base_dt  = datetime.now() - timedelta(days=days_ago)
+        # Build stage history: one entry per stage up to the current one
+        history = []
+        for sn in STAGE_NAMES:
+            entry_dt = base_dt + timedelta(days=STAGE_NAMES.index(sn) * 3)
+            history.append({"stage": sn, "moved_at": entry_dt.strftime("%Y-%m-%d")})
+            if sn == stage:
+                break
         st.session_state.submissions.append({
             "id":            sid,
             "name":          name,
@@ -963,7 +990,8 @@ def add_demo_submissions():
             "high_risk":     scores.get("high_risk", []),
             "scored_at":     scores.get("scored_at", ""),
             "stage_summary": generate_stage_summary({"name": name, "overall": scores["overall"]}, stage) if stage != "Intake" else "",
-            "submitted_at":  (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d"),
+            "stage_history": history,
+            "submitted_at":  base_dt.strftime("%Y-%m-%d"),
             "notes":         "",
         })
 
@@ -1239,6 +1267,7 @@ elif page == "Submissions":
                     "high_risk":     [],
                     "scored_at":     "",
                     "stage_summary": "",
+                    "stage_history": [{"stage": init_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")}],
                     "submitted_at":  datetime.now().strftime("%Y-%m-%d"),
                     "notes":         notes_txt,
                 })
@@ -1312,14 +1341,14 @@ elif page == "Submissions":
         # ── Table ─────────────────────────────────────────────────────────────
         st.markdown('<div class="section-hd" style="margin-top:16px;">All Submissions</div>', unsafe_allow_html=True)
 
-        hd = st.columns([1.2, 3.5, 1.1, 1.1, 1.1, 1.5, 1.5, 2.8])
-        for col, label in zip(hd, ["ID","Idea Name","Overall","Innovation","Feasibility","Status","Stage","Actions"]):
+        hd = st.columns([1.1, 3.2, 1.0, 1.0, 1.0, 1.4, 1.5, 1.5, 2.8])
+        for col, label in zip(hd, ["ID","Idea Name","Overall","Innov.","Feas.","Status","AI Badge","Stage","Actions"]):
             col.markdown(f'<span style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#8b949e;font-weight:600;">{label}</span>', unsafe_allow_html=True)
 
         st.markdown("<hr style='margin:6px 0 0 0'>", unsafe_allow_html=True)
 
         for sub in visible:
-            row = st.columns([1.2, 3.5, 1.1, 1.1, 1.1, 1.5, 1.5, 2.8])
+            row = st.columns([1.1, 3.2, 1.0, 1.0, 1.0, 1.4, 1.5, 1.5, 2.8])
 
             with row[0]:
                 st.markdown(f'<span class="forge-id">{sub["id"]}</span>', unsafe_allow_html=True)
@@ -1342,14 +1371,27 @@ elif page == "Submissions":
                 st.markdown(f'<span class="pill {pc}">{sub["status"]}</span>', unsafe_allow_html=True)
 
             with row[6]:
+                blabel, bcolor, bbg = forge_badge(sub)
+                if blabel:
+                    st.markdown(
+                        f'<span style="font-size:10px;font-weight:700;color:{bcolor};'
+                        f'background:{bbg};border:1px solid {bcolor}44;'
+                        f'border-radius:4px;padding:2px 7px;white-space:nowrap;">'
+                        f'{blabel}</span>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown('<span style="color:#6e7681;font-size:12px;">—</span>', unsafe_allow_html=True)
+
+            with row[7]:
                 sc = next((s["color"] for s in STAGES if s["name"] == sub["stage"]), "#8b949e")
                 st.markdown(f'<span style="font-size:11px;font-weight:600;color:{sc};">● {sub["stage"]}</span>', unsafe_allow_html=True)
 
-            with row[7]:
+            with row[8]:
                 a1, a2, a3 = st.columns(3)
                 with a1:
                     if st.button("Score", key=f"sc_{sub['id']}"):
-                        with st.spinner(f"Scoring {sub['name']}…"):
+                        with st.spinner("Scoring with ForgeOS Rubric v2…"):
                             time.sleep(0.8)
                             sc2 = ai_score_submission(sub, rubric)
                             idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
@@ -1368,11 +1410,16 @@ elif page == "Submissions":
                     cur_stage_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
                     at_last = cur_stage_idx >= len(STAGE_NAMES) - 1
                     if st.button("Advance", key=f"adv_{sub['id']}", disabled=at_last):
-                        idx          = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                        new_stage    = STAGE_NAMES[cur_stage_idx + 1]
-                        summary      = generate_stage_summary(st.session_state.submissions[idx], new_stage)
-                        st.session_state.submissions[idx]["stage"]         = new_stage
-                        st.session_state.submissions[idx]["stage_summary"] = summary
+                        new_stage = STAGE_NAMES[cur_stage_idx + 1]
+                        with st.spinner(f"Advancing to {new_stage}…"):
+                            time.sleep(0.5)
+                            idx     = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
+                            summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
+                            hist    = st.session_state.submissions[idx].get("stage_history", [])
+                            hist.append({"stage": new_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")})
+                            st.session_state.submissions[idx]["stage"]         = new_stage
+                            st.session_state.submissions[idx]["stage_summary"] = summary
+                            st.session_state.submissions[idx]["stage_history"] = hist
                         st.rerun()
                 with a3:
                     if st.button("Delete", key=f"del_{sub['id']}"):
@@ -1407,6 +1454,32 @@ elif page == "Submissions":
                           <ul style="margin:0;padding-left:16px;font-size:12px;color:#d29922;">{hr_items}</ul>
                         </div>""", unsafe_allow_html=True)
 
+                    # ── Stage history timeline ────────────────────────────────
+                    hist = sub.get("stage_history", [])
+                    if hist:
+                        dots = ""
+                        for i, entry in enumerate(hist):
+                            is_current = (entry["stage"] == sub["stage"])
+                            sc_clr = next((s["color"] for s in STAGES if s["name"] == entry["stage"]), "#8b949e")
+                            dot_clr = sc_clr if is_current else "#30363d"
+                            txt_clr = sc_clr if is_current else "#6e7681"
+                            fw  = "700" if is_current else "500"
+                            connector = '<span style="color:#30363d;margin:0 4px;">→</span>' if i < len(hist) - 1 else ""
+                            dots += (
+                                f'<span style="font-size:11px;font-weight:{fw};color:{txt_clr};">'
+                                f'<span style="color:{dot_clr};">●</span> {entry["stage"]}'
+                                f'<span style="font-size:9px;color:#6e7681;margin-left:4px;">{entry["moved_at"]}</span>'
+                                f'</span>{connector}'
+                            )
+                        st.markdown(f"""
+                        <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;
+                                    padding:10px 16px;margin-bottom:12px;overflow-x:auto;white-space:nowrap;">
+                          <div style="font-size:10px;font-weight:700;color:#8b949e;
+                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+                            Stage History</div>
+                          <div>{dots}</div>
+                        </div>""", unsafe_allow_html=True)
+
                     # ── Stage summary ────────────────────────────────────────
                     summ = sub.get("stage_summary", "")
                     if summ:
@@ -1415,7 +1488,7 @@ elif page == "Submissions":
                                     padding:12px 16px;margin-bottom:16px;">
                           <div style="font-size:10px;font-weight:700;color:#58a6ff;
                                       text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
-                            Stage Note</div>
+                            AI Stage Note — {sub['stage']}</div>
                           <div style="font-size:12px;color:#b0b8c4;line-height:1.6;">{summ}</div>
                         </div>""", unsafe_allow_html=True)
 
@@ -1525,24 +1598,69 @@ elif page == "Pipeline":
 
             if items:
                 for sub in items:
-                    badge = ""
+                    score_badge_html = ""
                     if sub["overall"] > 0:
                         bc = score_badge_class(sub["overall"])
-                        badge = f'<span class="badge-score {bc}" style="font-size:10px;">{sub["overall"]}</span>'
+                        score_badge_html = f'<span class="badge-score {bc}" style="font-size:10px;">{sub["overall"]}</span>'
                     pc = pill_class(sub["status"])
+                    blabel, bcolor, bbg = forge_badge(sub)
+                    fb_html = ""
+                    if blabel:
+                        fb_html = (
+                            f'<span style="font-size:9px;font-weight:700;color:{bcolor};'
+                            f'background:{bbg};border:1px solid {bcolor}44;'
+                            f'border-radius:3px;padding:1px 5px;margin-left:4px;">'
+                            f'{blabel}</span>'
+                        )
+
                     st.markdown(f"""
                     <div class="kanban-card">
                         <div class="kanban-card-title">{sub['name']}</div>
-                        <div class="kanban-card-meta">
+                        <div class="kanban-card-meta" style="display:flex;align-items:center;flex-wrap:wrap;gap:4px;">
                             <span class="forge-id" style="font-size:10px;">{sub['id']}</span>
-                            {badge}
+                            {score_badge_html}{fb_html}
                         </div>
                         <div style="margin-top:6px;">
                             <span class="pill {pc}" style="font-size:10px;">{sub['status']}</span>
                         </div>
                     </div>""", unsafe_allow_html=True)
+
+                    # ── Inline action buttons ───────────────────────────────
+                    cur_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
+                    at_last = cur_idx >= len(STAGE_NAMES) - 1
+                    btn_score, btn_adv = st.columns(2)
+                    with btn_score:
+                        if st.button("Score", key=f"pipe_sc_{sub['id']}"):
+                            with st.spinner("Scoring with ForgeOS Rubric v2…"):
+                                time.sleep(0.8)
+                                sc2 = ai_score_submission(sub, rubric)
+                                idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
+                                st.session_state.submissions[idx].update({
+                                    "overall":    sc2["overall"],
+                                    "innovation":  sc2["innovation"],
+                                    "feasibility": sc2["feasibility"],
+                                    "categories":  sc2["categories"],
+                                    "auto_reject": sc2["auto_reject"],
+                                    "high_risk":   sc2["high_risk"],
+                                    "scored_at":   sc2["scored_at"],
+                                    "status":      "Scored",
+                                })
+                                st.rerun()
+                    with btn_adv:
+                        if st.button("Advance →", key=f"pipe_adv_{sub['id']}", disabled=at_last):
+                            new_stage = STAGE_NAMES[cur_idx + 1]
+                            with st.spinner(f"Advancing to {new_stage}…"):
+                                time.sleep(0.5)
+                                idx     = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
+                                summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
+                                hist    = st.session_state.submissions[idx].get("stage_history", [])
+                                hist.append({"stage": new_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")})
+                                st.session_state.submissions[idx]["stage"]         = new_stage
+                                st.session_state.submissions[idx]["stage_summary"] = summary
+                                st.session_state.submissions[idx]["stage_history"] = hist
+                            st.rerun()
             else:
-                st.markdown(f'<div class="kanban-empty">No ideas</div>', unsafe_allow_html=True)
+                st.markdown('<div class="kanban-empty">No ideas</div>', unsafe_allow_html=True)
 
     # ── Stage distribution bar chart ──────────────────────────────────────────
     if subs:
