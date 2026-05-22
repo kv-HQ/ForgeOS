@@ -958,63 +958,309 @@ def ai_score_submission(submission, rubric_data):
     }
 
 
-def extract_file_text(uploaded_files):
+def _vision_describe_image(img_bytes: bytes, filename: str, api_key: str, base_url: str, model: str) -> str:
     """
-    Extract plain text from uploaded files for use as LLM context.
-    - PDF: text extracted via pypdf
-    - Image: placeholder note
-    - Video: placeholder note
-    - Text/other: decoded as UTF-8 where possible
-    Returns a combined string.
+    Send an image to a vision-capable LLM and return a structured description.
+    Raises RuntimeError on failure — caller handles fallback.
     """
+    import base64 as _b64
+    ext  = filename.rsplit(".", 1)[-1].lower() if "." in filename else "jpg"
+    mime = {"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png",
+            "gif": "image/gif", "webp": "image/webp", "bmp": "image/bmp"}.get(ext, "image/jpeg")
+    data_url = f"data:{mime};base64,{_b64.b64encode(img_bytes).decode()}"
+
+    prompt = (
+        "You are analyzing an uploaded file for a physical goods product innovation platform. "
+        "Describe what you see in structured form covering: "
+        "(1) Product or concept shown, "
+        "(2) Key design or technical features visible, "
+        "(3) Apparent materials or manufacturing process, "
+        "(4) Market positioning signals. "
+        "Be specific and technical. Max 200 words."
+    )
+    payload = json.dumps({
+        "model": model,
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
+        ]}],
+        "max_tokens": 400,
+        "temperature": 0.3,
+    }).encode("utf-8")
+    req = urllib.request.Request(
+        url=f"{base_url}/chat/completions", data=payload, method="POST",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {api_key}"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode())["choices"][0]["message"]["content"].strip()
+    except Exception as exc:
+        raise RuntimeError(f"Vision API: {exc}") from exc
+
+
+def extract_file_text(
+    uploaded_files,
+    status_slot=None,
+    use_llm_vision: bool = False,
+    api_key: str = "",
+    base_url: str = "",
+    model: str = "",
+):
+    """
+    Rich multimodal content extraction.
+    Returns (combined_text: str, summaries: list[dict]).
+
+    Each summary dict keys:
+      name, file_type, extraction_method, chars, pages (PDF),
+      dimensions (image), thumbnail_b64 (image/video), preview, file_size_kb
+    """
+    import io as _io
     if not uploaded_files:
-        return ""
-    parts = []
+        return "", []
+
+    parts: list = []
+    summaries: list = []
+
     for f in uploaded_files:
-        fname = f.name.lower()
-        ftype = f.type or ""
+        fname      = f.name
+        flower     = fname.lower()
+        ftype_mime = f.type or ""
+        file_bytes = f.read()
+        file_size_kb = round(len(file_bytes) / 1024, 1)
+
+        summary: dict = {
+            "name": fname, "file_type": "other", "extraction_method": "none",
+            "chars": 0, "pages": None, "dimensions": None,
+            "thumbnail_b64": None, "preview": "", "file_size_kb": file_size_kb,
+        }
+
+        if status_slot:
+            status_slot.markdown(
+                f'<div style="font-size:12px;color:#8b949e;padding:2px 0;">'
+                f'⚙ Parsing <strong style="color:#e6edf3;">{fname}</strong> '
+                f'<span style="color:#6e7681;">({file_size_kb} KB)</span></div>',
+                unsafe_allow_html=True,
+            )
+
         try:
-            if fname.endswith(".pdf") or "pdf" in ftype:
+            # ── PDF ──────────────────────────────────────────────────────────
+            if flower.endswith(".pdf") or "pdf" in ftype_mime:
+                summary["file_type"] = "pdf"
+                text_pages: list = []
+                page_count = 0
+                method = "none"
+
+                # Try PyMuPDF (layout-aware, handles columns/tables better)
                 try:
-                    import pypdf
-                    reader = pypdf.PdfReader(f)
-                    pages  = []
-                    for page in reader.pages:
-                        txt = page.extract_text()
-                        if txt:
-                            pages.append(txt.strip())
-                    if pages:
-                        combined = "\n".join(pages)
-                        parts.append(f"[PDF: {f.name}]\n{combined}")
-                    else:
-                        parts.append(f"[PDF: {f.name}] (no extractable text — may be scanned image)")
-                except Exception as pdf_err:
-                    parts.append(f"[PDF: {f.name}] (extraction failed: {pdf_err})")
-            elif any(fname.endswith(ext) for ext in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
-                parts.append(f"[Image: {f.name}] — Image uploaded; manual visual review recommended.")
-            elif any(fname.endswith(ext) for ext in (".mp4", ".mov", ".avi", ".webm", ".mkv")):
-                parts.append(f"[Video: {f.name}] — Video uploaded; manual review recommended (transcription not available).")
-            elif any(fname.endswith(ext) for ext in (".txt", ".md", ".csv")):
-                raw = f.read()
-                try:
-                    parts.append(f"[Text: {f.name}]\n{raw.decode('utf-8', errors='replace')[:4000]}")
+                    import fitz  # PyMuPDF
+                    doc = fitz.open(stream=file_bytes, filetype="pdf")
+                    page_count = doc.page_count
+                    for pg in doc:
+                        blocks = pg.get_text("blocks")
+                        pg_text = "\n".join(
+                            b[4].strip()
+                            for b in sorted(blocks, key=lambda b: (b[1], b[0]))
+                            if len(b) > 4 and b[4].strip()
+                        )
+                        if pg_text:
+                            text_pages.append(f"[Page {pg.number + 1}]\n{pg_text}")
+                    doc.close()
+                    method = "PyMuPDF"
+                except ImportError:
+                    pass  # fall through to pypdf
                 except Exception:
-                    parts.append(f"[Text: {f.name}] (could not decode)")
+                    pass
+
+                if not text_pages:
+                    try:
+                        import pypdf
+                        reader = pypdf.PdfReader(_io.BytesIO(file_bytes))
+                        page_count = len(reader.pages)
+                        for pg in reader.pages:
+                            t = pg.extract_text()
+                            if t:
+                                text_pages.append(t.strip())
+                        method = "pypdf"
+                    except Exception as pdf_err:
+                        text_pages = [f"(Extraction failed: {pdf_err})"]
+                        method = "error"
+
+                combined_pdf = "\n\n".join(text_pages)
+                label = f"[PDF: {fname} · {page_count} page(s) · via {method}]"
+                parts.append(f"{label}\n{combined_pdf}")
+                summary.update({
+                    "extraction_method": method,
+                    "chars": len(combined_pdf),
+                    "pages": page_count,
+                    "preview": combined_pdf[:400].replace("\n", " "),
+                })
+
+            # ── Image ─────────────────────────────────────────────────────────
+            elif any(flower.endswith(x) for x in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
+                summary["file_type"] = "image"
+                from PIL import Image as _PILImage
+                import base64 as _b64
+
+                img = _PILImage.open(_io.BytesIO(file_bytes))
+                w, h = img.size
+                fmt  = img.format or flower.rsplit(".", 1)[-1].upper()
+
+                # EXIF
+                exif_lines: list = []
+                try:
+                    raw_exif = img._getexif()
+                    if raw_exif:
+                        from PIL.ExifTags import TAGS as _TAGS
+                        wanted = {"Make", "Model", "DateTime", "Software"}
+                        for tid, val in raw_exif.items():
+                            tname = _TAGS.get(tid, "")
+                            if tname in wanted:
+                                exif_lines.append(f"{tname}: {str(val)[:80]}")
+                except Exception:
+                    pass
+
+                # Thumbnail (for UI display)
+                thumb = img.copy()
+                thumb.thumbnail((240, 180), _PILImage.LANCZOS)
+                if thumb.mode not in ("RGB", "L"):
+                    thumb = thumb.convert("RGB")
+                buf = _io.BytesIO()
+                thumb.save(buf, format="JPEG", quality=75)
+                thumb_b64 = _b64.b64encode(buf.getvalue()).decode()
+
+                exif_str   = "; ".join(exif_lines) if exif_lines else "none"
+                meta_text  = (
+                    f"Image: {fname}\n"
+                    f"Dimensions: {w}×{h} px  Format: {fmt}\n"
+                    f"File size: {file_size_kb} KB\n"
+                    f"EXIF: {exif_str}"
+                )
+
+                # LLM vision analysis
+                vision_text = ""
+                if use_llm_vision and api_key:
+                    try:
+                        vision_text = _vision_describe_image(file_bytes, fname, api_key, base_url, model)
+                        method = "vision_llm+pillow"
+                    except Exception as ve:
+                        vision_text = f"(Vision analysis unavailable: {ve})"
+                        method = "pillow_metadata"
+                else:
+                    method = "pillow_metadata"
+
+                full_img_text = meta_text + (f"\n\nAI Visual Analysis:\n{vision_text}" if vision_text else "")
+                parts.append(f"[Image: {fname}]\n{full_img_text}")
+                summary.update({
+                    "extraction_method": method,
+                    "chars": len(full_img_text),
+                    "dimensions": f"{w}×{h}",
+                    "thumbnail_b64": thumb_b64,
+                    "preview": (vision_text[:300] if vision_text and "unavailable" not in vision_text
+                                else meta_text[:200]),
+                })
+
+            # ── Video ─────────────────────────────────────────────────────────
+            elif any(flower.endswith(x) for x in (".mp4", ".mov", ".avi", ".webm", ".mkv")):
+                summary["file_type"] = "video"
+                ext_label = flower.rsplit(".", 1)[-1].upper()
+                meta_text = (
+                    f"Video file: {fname}\n"
+                    f"Format: {ext_label}  File size: {file_size_kb} KB\n"
+                    "Note: Full transcription not available. Score this submission based on "
+                    "the idea name, notes, and any accompanying documents."
+                )
+                frame_note = ""
+                thumb_b64  = None
+
+                # Try cv2 for first-frame extraction (optional dependency)
+                try:
+                    import cv2 as _cv2
+                    import tempfile, os as _os, base64 as _b64
+                    from PIL import Image as _PILImage
+                    with tempfile.NamedTemporaryFile(
+                        suffix=f".{flower.rsplit('.', 1)[-1]}", delete=False
+                    ) as tmp:
+                        tmp.write(file_bytes)
+                        tmp_path = tmp.name
+                    cap = _cv2.VideoCapture(tmp_path)
+                    fps         = cap.get(_cv2.CAP_PROP_FPS) or 25
+                    total_fr    = int(cap.get(_cv2.CAP_PROP_FRAME_COUNT))
+                    duration_s  = round(total_fr / fps, 1) if total_fr else 0
+                    vid_w       = int(cap.get(_cv2.CAP_PROP_FRAME_WIDTH))
+                    vid_h       = int(cap.get(_cv2.CAP_PROP_FRAME_HEIGHT))
+                    ret, frame  = cap.read()
+                    cap.release()
+                    _os.unlink(tmp_path)
+                    meta_text += f"\nResolution: {vid_w}×{vid_h}  Duration: {duration_s}s  FPS: {round(fps,1)}"
+                    if ret:
+                        rgb   = _cv2.cvtColor(frame, _cv2.COLOR_BGR2RGB)
+                        pil_f = _PILImage.fromarray(rgb)
+                        pil_f.thumbnail((240, 180), _PILImage.LANCZOS)
+                        buf_f = _io.BytesIO()
+                        pil_f.save(buf_f, format="JPEG", quality=75)
+                        thumb_b64 = _b64.b64encode(buf_f.getvalue()).decode()
+                        if use_llm_vision and api_key:
+                            try:
+                                buf_vis = _io.BytesIO()
+                                pil_f.save(buf_vis, format="JPEG", quality=85)
+                                frame_note = "\n\nFirst-frame visual analysis:\n" + _vision_describe_image(
+                                    buf_vis.getvalue(), f"{fname}_frame.jpg", api_key, base_url, model
+                                )
+                            except Exception:
+                                frame_note = "\n(First-frame vision analysis unavailable)"
+                except ImportError:
+                    pass
+                except Exception:
+                    pass
+
+                full_vid_text = meta_text + frame_note
+                parts.append(f"[Video: {fname}]\n{full_vid_text}")
+                summary.update({
+                    "extraction_method": "cv2+vision" if frame_note else ("cv2" if thumb_b64 else "metadata"),
+                    "chars": len(full_vid_text),
+                    "thumbnail_b64": thumb_b64,
+                    "preview": full_vid_text[:200],
+                })
+
+            # ── Text / document ──────────────────────────────────────────────
+            elif any(flower.endswith(x) for x in (".txt", ".md", ".csv", ".docx", ".doc")):
+                summary["file_type"] = "text"
+                if flower.endswith(".docx"):
+                    try:
+                        import docx as _docx
+                        doc  = _docx.Document(_io.BytesIO(file_bytes))
+                        text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+                        parts.append(f"[Document: {fname}]\n{text[:6000]}")
+                        summary.update({
+                            "extraction_method": "python-docx",
+                            "chars": len(text),
+                            "preview": text[:300],
+                        })
+                    except ImportError:
+                        decoded = file_bytes.decode("utf-8", errors="replace")[:4000]
+                        parts.append(f"[Document: {fname}]\n{decoded}")
+                        summary.update({"extraction_method": "utf8", "chars": len(decoded), "preview": decoded[:300]})
+                else:
+                    decoded = file_bytes.decode("utf-8", errors="replace")[:6000]
+                    parts.append(f"[Text: {fname}]\n{decoded}")
+                    summary.update({"extraction_method": "utf8", "chars": len(decoded), "preview": decoded[:300]})
+
+            # ── Fallback ─────────────────────────────────────────────────────
             else:
-                raw = f.read()
                 try:
-                    decoded = raw.decode("utf-8", errors="replace")[:2000]
-                    parts.append(f"[File: {f.name}]\n{decoded}")
+                    decoded = file_bytes.decode("utf-8", errors="replace")[:2000]
+                    parts.append(f"[File: {fname}]\n{decoded}")
+                    summary.update({"extraction_method": "utf8", "chars": len(decoded), "preview": decoded[:200]})
                 except Exception:
-                    parts.append(f"[File: {f.name}] (binary — cannot extract text)")
+                    parts.append(f"[File: {fname}] (binary — cannot extract text)")
+
         except Exception as outer_err:
-            parts.append(f"[File: {f.name}] (read error: {outer_err})")
-        finally:
-            try:
-                f.seek(0)
-            except Exception:
-                pass
-    return "\n\n".join(parts)
+            parts.append(f"[File: {fname}] (error: {outer_err})")
+            summary["preview"] = f"Extraction error: {outer_err}"
+
+        summaries.append(summary)
+
+    return "\n\n".join(parts), summaries
 
 
 def _ai_score_llm_pure(submission, rubric_data, api_key: str, base_url: str, model: str):
@@ -1749,6 +1995,7 @@ def add_demo_submissions():
             "stage_summary":  generate_stage_summary({"name": name, "overall": scores["overall"]}, stage) if stage != "Intake" else "",
             "stage_history":  history,
             "extracted_text": "",
+            "file_summaries": [],
             "submitted_at":  base_dt.strftime("%Y-%m-%d"),
             "notes":         "",
         })
@@ -2009,23 +2256,85 @@ elif page == "Submissions":
             idea_name = st.text_input("Idea Name", placeholder="e.g. Self-Healing Polymer Coating")
             uploaded  = st.file_uploader(
                 "Supporting files",
-                type=["pdf","png","jpg","jpeg","mp4","mov","txt","docx"],
+                type=["pdf","png","jpg","jpeg","gif","webp","bmp","mp4","mov","avi","webm","txt","md","csv","docx"],
                 accept_multiple_files=True,
-                help="PDF, images, videos, or documents",
+                help="PDF (layout-aware extraction) · PNG/JPG/WebP (vision analysis) · MP4/MOV (metadata + first-frame) · TXT/CSV/DOCX",
             )
+            # ── Instant file previews (before submit) ────────────────────
+            if uploaded:
+                import io as _preview_io
+                from PIL import Image as _PreviewImage
+                n_prev = min(len(uploaded), 5)
+                prev_cols = st.columns(n_prev)
+                _type_icons = {
+                    "pdf": "📄", "mp4": "🎬", "mov": "🎬", "avi": "🎬",
+                    "webm": "🎬", "txt": "📝", "md": "📝", "csv": "📊", "docx": "📝",
+                }
+                for pi, pf in enumerate(uploaded[:n_prev]):
+                    with prev_cols[pi]:
+                        pn = pf.name.lower()
+                        pf.seek(0)
+                        if any(pn.endswith(x) for x in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
+                            try:
+                                raw = pf.read()
+                                img_prev = _PreviewImage.open(_preview_io.BytesIO(raw))
+                                st.image(img_prev, caption=pf.name[:22], use_container_width=True)
+                            except Exception:
+                                st.markdown(f"🖼 `{pf.name[:20]}`")
+                        else:
+                            ext_p = pn.rsplit(".", 1)[-1] if "." in pn else "file"
+                            icon_p = _type_icons.get(ext_p, "📎")
+                            sz_p = round(pf.size / 1024, 1) if hasattr(pf, "size") else "?"
+                            st.markdown(
+                                f'<div style="border:1px solid #21262d;border-radius:6px;'
+                                f'padding:8px 10px;text-align:center;font-size:12px;color:#8b949e;">'
+                                f'<div style="font-size:22px;margin-bottom:4px;">{icon_p}</div>'
+                                f'<div style="color:#e6edf3;font-weight:600;word-break:break-all;">{pf.name[:20]}</div>'
+                                f'<div style="font-size:10px;margin-top:2px;">{ext_p.upper()} · {sz_p} KB</div>'
+                                f'</div>',
+                                unsafe_allow_html=True,
+                            )
+                        pf.seek(0)
+                if len(uploaded) > n_prev:
+                    st.caption(f"+ {len(uploaded) - n_prev} more file(s)")
+
         with col_f2:
             init_stage = st.selectbox("Initial Stage", STAGE_NAMES)
             notes_txt  = st.text_area("Notes", height=96, placeholder="Brief context…")
+            if uploaded and _llm_ready():
+                use_vis = st.checkbox(
+                    "🔍 Vision analysis for images",
+                    value=True,
+                    help="Uses LLM vision to describe image content. Requires Real LLM mode & API key.",
+                )
+            else:
+                use_vis = False
 
         if st.button("Submit Idea"):
             if not idea_name.strip():
                 st.error("Idea name is required.")
             else:
                 ftypes = list({f.type.split("/")[-1].upper() for f in (uploaded or [])}) or ["—"]
-                extracted = ""
+                extracted    = ""
+                file_summaries: list = []
                 if uploaded:
-                    with st.spinner("Extracting file content…"):
-                        extracted = extract_file_text(uploaded)
+                    with st.status("Parsing uploaded files…", expanded=True) as parse_status:
+                        _slot = st.empty()
+                        _is_llm_mode = st.session_state.get("scoring_mode", "Simulated AI") == "Real LLM"
+                        extracted, file_summaries = extract_file_text(
+                            uploaded,
+                            status_slot=_slot,
+                            use_llm_vision=(use_vis and _llm_ready() and _is_llm_mode),
+                            api_key=_effective_llm_key(),
+                            base_url=_FORGE_LLM_BASE_URL,
+                            model=_FORGE_LLM_MODEL,
+                        )
+                        _slot.empty()
+                        total_chars = sum(s["chars"] for s in file_summaries)
+                        parse_status.update(
+                            label=f"✅ {len(file_summaries)} file(s) parsed — {total_chars:,} chars extracted",
+                            state="complete",
+                        )
                 sid = f"FOS-{st.session_state.next_id}"
                 st.session_state.next_id += 1
                 st.session_state.submissions.append({
@@ -2046,8 +2355,9 @@ elif page == "Submissions":
                     "submitted_at":   datetime.now().strftime("%Y-%m-%d"),
                     "notes":          notes_txt,
                     "extracted_text": extracted,
+                    "file_summaries": file_summaries,
                 })
-                file_note = f" ({len(uploaded)} file(s) processed)" if uploaded else ""
+                file_note = f" ({len(uploaded)} file(s) parsed)" if uploaded else ""
                 st.success(f"Submission {sid} added{file_note}.")
                 st.rerun()
 
@@ -2482,6 +2792,62 @@ elif page == "Submissions":
                             ⚠ High-Risk Flag</div>
                           <ul style="margin:0;padding-left:16px;font-size:12px;color:#d29922;">{hr_items}</ul>
                         </div>""", unsafe_allow_html=True)
+
+                    # ── Uploaded file summaries ──────────────────────────────
+                    file_sums = sub.get("file_summaries", [])
+                    if file_sums:
+                        _ftype_icons = {
+                            "pdf": "📄", "image": "🖼", "video": "🎬",
+                            "text": "📝", "other": "📎",
+                        }
+                        _method_labels = {
+                            "PyMuPDF": "PyMuPDF", "pypdf": "pypdf",
+                            "vision_llm+pillow": "LLM Vision", "pillow_metadata": "Pillow",
+                            "cv2+vision": "cv2 + Vision", "cv2": "cv2",
+                            "metadata": "metadata", "utf8": "text", "python-docx": "docx",
+                        }
+                        st.markdown(
+                            '<div style="font-size:10px;font-weight:700;color:#8b949e;'
+                            'text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">'
+                            '📎 Uploaded Files</div>',
+                            unsafe_allow_html=True,
+                        )
+                        fs_cols = st.columns(min(len(file_sums), 3))
+                        for fi, fs in enumerate(file_sums):
+                            with fs_cols[fi % 3]:
+                                ftype_ic = _ftype_icons.get(fs.get("file_type", "other"), "📎")
+                                method_lbl = _method_labels.get(fs.get("extraction_method", ""), fs.get("extraction_method", "—"))
+                                extra = ""
+                                if fs.get("pages"):
+                                    extra = f'{fs["pages"]} pages · '
+                                if fs.get("dimensions"):
+                                    extra = f'{fs["dimensions"]} · '
+                                chars_lbl = f'{fs["chars"]:,} chars' if fs.get("chars") else "—"
+                                size_lbl  = f'{fs["file_size_kb"]} KB' if fs.get("file_size_kb") else ""
+
+                                if fs.get("thumbnail_b64"):
+                                    st.markdown(
+                                        f'<img src="data:image/jpeg;base64,{fs["thumbnail_b64"]}" '
+                                        f'style="width:100%;border-radius:4px;margin-bottom:4px;">',
+                                        unsafe_allow_html=True,
+                                    )
+                                st.markdown(
+                                    f'<div style="background:#0d1117;border:1px solid #21262d;'
+                                    f'border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;">'
+                                    f'<div style="font-weight:600;color:#e6edf3;margin-bottom:3px;">'
+                                    f'{ftype_ic} {fs["name"][:30]}</div>'
+                                    f'<div style="color:#8b949e;">{extra}{chars_lbl} · {size_lbl}</div>'
+                                    f'<div style="color:#6e7681;font-size:10px;margin-top:2px;">'
+                                    f'via {method_lbl}</div>'
+                                    f'</div>',
+                                    unsafe_allow_html=True,
+                                )
+
+                        # Extracted text preview (collapsible)
+                        raw_text = sub.get("extracted_text", "")
+                        if raw_text.strip():
+                            with st.expander("📄 Extracted Content Preview", expanded=False):
+                                st.code(raw_text[:3000] + ("…" if len(raw_text) > 3000 else ""), language=None)
 
                     # ── Stage history timeline ────────────────────────────────
                     hist = sub.get("stage_history", [])
