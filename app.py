@@ -560,6 +560,439 @@ hr { border-color: #6e7681 !important; margin: 12px 0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
+# ─── Design System v2 — Premium Redesign ─────────────────────────────────────
+st.markdown("""
+<style>
+/* ══ Design Tokens ══════════════════════════════════════════════ */
+:root {
+  --bg:            #07101f;
+  --surface:       #0b1626;
+  --card:          #0f1e30;
+  --card-hover:    #132438;
+  --border:        #1a2f49;
+  --border-soft:   #111e2f;
+  --text-1:        #ddeaf8;
+  --text-2:        #8aa4c0;
+  --text-3:        #4e6680;
+  --accent:        #3b82f6;
+  --accent-dim:    rgba(59,130,246,0.10);
+  --accent-glow:   rgba(59,130,246,0.20);
+  --green:         #22c55e;
+  --green-bg:      rgba(34,197,94,0.09);
+  --green-border:  rgba(34,197,94,0.24);
+  --amber:         #f59e0b;
+  --amber-bg:      rgba(245,158,11,0.09);
+  --amber-border:  rgba(245,158,11,0.24);
+  --red:           #f43f5e;
+  --red-bg:        rgba(244,63,94,0.09);
+  --red-border:    rgba(244,63,94,0.24);
+  --purple:        #a78bfa;
+  --purple-bg:     rgba(167,139,250,0.09);
+  --purple-border: rgba(167,139,250,0.24);
+  --shadow-sm: 0 1px 5px rgba(0,0,16,0.55), 0 0 0 1px rgba(255,255,255,0.025);
+  --shadow-md: 0 4px 20px rgba(0,0,16,0.60), 0 0 0 1px rgba(255,255,255,0.038);
+  --shadow-lg: 0 10px 40px rgba(0,0,16,0.70), 0 0 0 1px rgba(255,255,255,0.05);
+  --r-sm: 6px; --r-md: 10px; --r-lg: 14px;
+  --ease: cubic-bezier(0.4,0,0.2,1); --dur: 140ms;
+}
+
+/* ══ Base overrides ═════════════════════════════════════════════ */
+*, html, body, [class*="css"] {
+  font-family: 'Inter', -apple-system, sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+.stApp { background: var(--bg) !important; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ══ Sidebar ════════════════════════════════════════════════════ */
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #060f1e 0%, #050c18 100%) !important;
+  border-right: 1px solid var(--border) !important;
+  min-width: 220px !important; max-width: 220px !important;
+}
+[data-testid="stSidebar"] > div { padding: 0 !important; }
+[data-testid="stSidebarContent"] { padding: 0 !important; }
+[data-testid="stSidebar"] .stRadio > label { display: none !important; }
+[data-testid="stSidebar"] .stRadio > div {
+  display: flex !important; flex-direction: column !important;
+  gap: 1px !important; padding: 0 8px !important;
+}
+[data-testid="stSidebar"] .stRadio > div > label {
+  display: flex !important; align-items: center !important;
+  padding: 7px 10px 7px 12px !important; border-radius: var(--r-sm) !important;
+  margin: 1px 0 !important; cursor: pointer !important;
+  font-size: 13px !important; font-weight: 500 !important;
+  color: var(--text-2) !important;
+  transition: all var(--dur) var(--ease) !important;
+  border: none !important; border-left: 2px solid transparent !important;
+}
+[data-testid="stSidebar"] .stRadio > div > label:hover {
+  background: rgba(59,130,246,0.08) !important;
+  color: var(--text-1) !important;
+  border-left-color: rgba(59,130,246,0.4) !important;
+}
+[data-testid="stSidebar"] .stRadio > div > label > div:first-child { display: none !important; }
+[data-testid="stSidebar"] .stRadio > div > label > div:last-child > p {
+  font-size: 13px !important; font-weight: 500 !important;
+  color: inherit !important; margin: 0 !important;
+}
+
+/* ══ Top bar ════════════════════════════════════════════════════ */
+.forge-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px; height: 50px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(7,16,31,0.93);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  position: sticky; top: 0; z-index: 100;
+}
+.forge-topbar-left { display: flex; align-items: center; gap: 12px; }
+.forge-breadcrumb {
+  font-size: 12px; color: var(--text-3); font-weight: 500;
+  display: flex; align-items: center; gap: 7px;
+}
+.forge-breadcrumb span { color: var(--text-1); font-weight: 600; font-size: 14px; }
+.forge-sep { color: var(--border); }
+.forge-page-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--accent);
+  background: var(--accent-dim); border: 1px solid rgba(59,130,246,0.22);
+  padding: 2px 9px; border-radius: 99px;
+}
+.forge-topbar-status {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: var(--text-3); font-weight: 500;
+}
+.forge-status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 7px var(--green);
+  animation: pulse-dot 2.5s ease-in-out infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+/* ══ Page content ═══════════════════════════════════════════════ */
+.page-content { padding: 24px 28px 48px !important; }
+
+/* ══ KPI card grid ══════════════════════════════════════════════ */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(152px, 1fr));
+  gap: 12px; margin-bottom: 28px;
+}
+.kpi-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 18px 18px 16px;
+  box-shadow: var(--shadow-sm); transition: all var(--dur) var(--ease);
+  position: relative; overflow: hidden; cursor: default;
+}
+.kpi-card::after {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.55), transparent);
+  opacity: 0; transition: opacity var(--dur) var(--ease);
+}
+.kpi-card:hover {
+  border-color: rgba(59,130,246,0.3); transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.kpi-card:hover::after { opacity: 1; }
+.kpi-icon { font-size: 18px; margin-bottom: 10px; display: block; }
+.kpi-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--text-3); margin-bottom: 8px;
+}
+.kpi-value {
+  font-size: 30px; font-weight: 800; color: var(--text-1); line-height: 1;
+  margin-bottom: 6px; font-variant-numeric: tabular-nums; letter-spacing: -0.03em;
+}
+.kpi-sub { font-size: 11px; color: var(--text-3); line-height: 1.4; }
+
+/* ══ Stat strip (legacy fallback) ═══════════════════════════════ */
+.stat-strip {
+  border: 1px solid var(--border) !important; border-radius: var(--r-md) !important;
+  background: var(--card) !important; box-shadow: var(--shadow-sm) !important;
+  overflow: hidden !important;
+}
+.stat-item {
+  padding: 18px 20px !important; border-right: 1px solid var(--border) !important;
+  transition: background var(--dur) var(--ease) !important;
+}
+.stat-item:hover { background: var(--card-hover) !important; }
+.stat-label {
+  font-size: 10px !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: 0.09em !important;
+  color: var(--text-3) !important; margin-bottom: 8px !important;
+}
+.stat-value {
+  font-size: 26px !important; font-weight: 800 !important;
+  color: var(--text-1) !important; letter-spacing: -0.025em !important;
+  line-height: 1 !important; margin-bottom: 4px !important;
+}
+.stat-sub { font-size: 11px !important; color: var(--text-3) !important; }
+
+/* ══ Section header ═════════════════════════════════════════════ */
+.section-hd {
+  font-size: 10px !important; font-weight: 700 !important;
+  text-transform: uppercase !important; letter-spacing: 0.10em !important;
+  color: var(--text-3) !important;
+  margin: 28px 0 14px !important; padding-bottom: 10px !important;
+  border-bottom: 1px solid var(--border-soft) !important;
+  display: flex !important; align-items: center !important; gap: 10px !important;
+}
+.section-hd::before {
+  content: ''; display: block; width: 3px; height: 12px;
+  background: linear-gradient(180deg, var(--accent) 0%, #6366f1 100%);
+  border-radius: 2px; flex-shrink: 0;
+}
+
+/* ══ Forge card ═════════════════════════════════════════════════ */
+.forge-card {
+  background: var(--card) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--r-md) !important; box-shadow: var(--shadow-sm) !important;
+  transition: all var(--dur) var(--ease) !important;
+}
+.forge-card:hover {
+  border-color: rgba(59,130,246,0.3) !important; box-shadow: var(--shadow-md) !important;
+}
+
+/* ══ Score badge ════════════════════════════════════════════════ */
+.badge-score {
+  display: inline-flex !important; align-items: center !important; gap: 4px !important;
+  padding: 3px 9px !important; border-radius: var(--r-sm) !important;
+  font-size: 12px !important; font-weight: 700 !important;
+  font-variant-numeric: tabular-nums !important; letter-spacing: -0.01em !important;
+}
+.badge-green  { background: var(--green-bg)  !important; color: var(--green)  !important; border: 1px solid var(--green-border)  !important; }
+.badge-yellow { background: var(--amber-bg)  !important; color: var(--amber)  !important; border: 1px solid var(--amber-border)  !important; }
+.badge-red    { background: var(--red-bg)    !important; color: var(--red)    !important; border: 1px solid var(--red-border)    !important; }
+
+/* ══ Status pill ════════════════════════════════════════════════ */
+.pill {
+  display: inline-block !important; padding: 3px 9px !important;
+  border-radius: 99px !important; font-size: 11px !important;
+  font-weight: 600 !important; letter-spacing: 0.02em !important;
+}
+.pill-new      { background: var(--accent-dim)  !important; color: #60a5fa     !important; border: 1px solid rgba(59,130,246,0.25)  !important; }
+.pill-scored   { background: var(--green-bg)    !important; color: var(--green) !important; border: 1px solid var(--green-border)    !important; }
+.pill-review   { background: var(--amber-bg)    !important; color: var(--amber) !important; border: 1px solid var(--amber-border)    !important; }
+.pill-approved { background: var(--purple-bg)   !important; color: var(--purple)!important; border: 1px solid var(--purple-border)   !important; }
+.pill-rejected { background: var(--red-bg)      !important; color: var(--red)   !important; border: 1px solid var(--red-border)      !important; }
+
+/* ══ Table ══════════════════════════════════════════════════════ */
+.forge-table { width: 100%; border-collapse: collapse; }
+.forge-th {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--text-3); padding: 10px 14px;
+  text-align: left; border-bottom: 1px solid var(--border);
+  white-space: nowrap; background: rgba(7,16,31,0.55);
+}
+.forge-tr { border-bottom: 1px solid var(--border-soft); transition: background var(--dur) var(--ease); }
+.forge-tr:last-child { border-bottom: none; }
+.forge-tr:hover { background: rgba(59,130,246,0.05) !important; }
+.forge-tr:nth-child(even) { background: rgba(255,255,255,0.012); }
+.forge-td { padding: 11px 14px; font-size: 13px; color: var(--text-2); vertical-align: middle; }
+.forge-td-primary { color: var(--text-1); font-weight: 500; }
+.forge-id {
+  font-size: 10px; font-weight: 700; color: var(--text-3);
+  font-family: 'SF Mono','Fira Code','Consolas',monospace !important;
+  background: var(--surface); padding: 3px 7px; border-radius: 4px;
+  border: 1px solid var(--border); letter-spacing: 0.04em;
+}
+
+/* ══ Kanban ═════════════════════════════════════════════════════ */
+.kanban-col-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 0 11px; margin-bottom: 12px; border-bottom: 1px solid var(--border-soft);
+}
+.kanban-col-name {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.10em; color: var(--text-2); display: flex; align-items: center; gap: 6px;
+}
+.kanban-count {
+  font-size: 10px; font-weight: 700; color: var(--text-3);
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 99px; padding: 1px 8px; min-width: 22px; text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.kanban-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-sm); padding: 11px 13px; margin-bottom: 7px;
+  box-shadow: var(--shadow-sm); transition: all var(--dur) var(--ease);
+  cursor: default; border-left-width: 3px;
+}
+.kanban-card:hover {
+  border-color: rgba(59,130,246,0.32); box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+.kanban-card-title {
+  font-size: 12px; font-weight: 500; color: var(--text-1);
+  margin-bottom: 8px; line-height: 1.45;
+}
+.kanban-card-meta {
+  font-size: 11px; color: var(--text-3);
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+}
+.kanban-empty {
+  font-size: 12px; color: var(--text-3); text-align: center;
+  padding: 22px 8px; border: 1px dashed var(--border);
+  border-radius: var(--r-sm); background: rgba(255,255,255,0.01);
+}
+
+/* ══ Stage flow card (dashboard pipeline) ═══════════════════════ */
+.stage-flow-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-top-width: 2px; border-radius: var(--r-md);
+  padding: 14px 10px 13px; text-align: center;
+  box-shadow: var(--shadow-sm); transition: all var(--dur) var(--ease);
+}
+.stage-flow-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.stage-flow-icon { font-size: 20px; margin-bottom: 6px; display: block; }
+.stage-flow-num {
+  font-size: 28px; font-weight: 900; line-height: 1;
+  margin-bottom: 5px; letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+.stage-flow-name {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--text-3);
+}
+
+/* ══ Upload zone ════════════════════════════════════════════════ */
+[data-testid="stFileUploader"] {
+  background: var(--card) !important;
+  border: 1.5px dashed var(--border) !important;
+  border-radius: var(--r-md) !important;
+  transition: all var(--dur) var(--ease) !important;
+}
+[data-testid="stFileUploader"]:hover {
+  border-color: var(--accent) !important;
+  background: rgba(59,130,246,0.03) !important;
+}
+
+/* ══ Buttons ════════════════════════════════════════════════════ */
+.stButton > button {
+  background: var(--surface) !important; color: var(--text-2) !important;
+  border: 1px solid var(--border) !important; border-radius: var(--r-sm) !important;
+  font-size: 12px !important; font-weight: 600 !important; padding: 6px 14px !important;
+  transition: all var(--dur) var(--ease) !important; letter-spacing: 0.01em !important;
+}
+.stButton > button:hover {
+  background: var(--card-hover) !important; border-color: rgba(59,130,246,0.38) !important;
+  color: var(--text-1) !important; transform: translateY(-1px) !important;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.35) !important;
+}
+.stButton > button[kind="primary"] {
+  background: linear-gradient(135deg,#3b82f6 0%,#2563eb 100%) !important;
+  border-color: rgba(59,130,246,0.55) !important; color: #fff !important;
+  box-shadow: 0 2px 10px rgba(59,130,246,0.30) !important;
+}
+.stButton > button[kind="primary"]:hover {
+  box-shadow: 0 4px 22px rgba(59,130,246,0.48) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* ══ Inputs ═════════════════════════════════════════════════════ */
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] > div > div,
+[data-testid="stNumberInput"] input {
+  background: var(--surface) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--r-sm) !important; color: var(--text-1) !important;
+  font-size: 13px !important; transition: all var(--dur) var(--ease) !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important; outline: none !important;
+}
+
+/* ══ Expander ═══════════════════════════════════════════════════ */
+[data-testid="stExpander"] {
+  background: var(--card) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--r-md) !important; box-shadow: var(--shadow-sm) !important;
+  transition: border-color var(--dur) var(--ease) !important;
+}
+[data-testid="stExpander"]:hover { border-color: rgba(59,130,246,0.28) !important; }
+[data-testid="stExpander"] summary {
+  color: var(--text-2) !important; padding: 13px 18px !important;
+}
+
+/* ══ Progress & alerts ══════════════════════════════════════════ */
+[data-testid="stProgress"] > div > div { border-radius: 99px !important; }
+[data-testid="stAlert"] {
+  background: var(--card) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--r-md) !important;
+}
+
+/* ══ Rubric criterion card ══════════════════════════════════════ */
+.crit-card {
+  background: var(--card) !important; border: 1px solid var(--border) !important;
+  border-radius: var(--r-md) !important; box-shadow: var(--shadow-sm) !important;
+  transition: all var(--dur) var(--ease) !important;
+}
+.crit-card:hover { border-color: rgba(59,130,246,0.30) !important; box-shadow: var(--shadow-md) !important; }
+.crit-name { font-size: 13px !important; font-weight: 600 !important; color: var(--text-1) !important; }
+.crit-desc { font-size: 12px !important; color: var(--text-3) !important; line-height: 1.55 !important; }
+.crit-weight {
+  background: var(--accent-dim) !important; color: var(--accent) !important;
+  border: 1px solid rgba(59,130,246,0.25) !important;
+}
+.anchor-band {
+  background: var(--surface) !important; border-radius: var(--r-sm) !important;
+  padding: 8px 12px !important; color: var(--text-2) !important; font-size: 12px !important;
+}
+.anchor-low  { border-left: 3px solid var(--red)   !important; }
+.anchor-mid  { border-left: 3px solid var(--amber) !important; }
+.anchor-high { border-left: 3px solid var(--green) !important; }
+.subfactor-tag {
+  background: var(--surface) !important; border: 1px solid var(--border) !important;
+  color: var(--text-3) !important;
+}
+.gate-rule {
+  background: var(--red-bg) !important; border: 1px solid var(--red-border) !important;
+  border-radius: var(--r-sm) !important;
+}
+
+/* ══ Sidebar custom HTML ════════════════════════════════════════ */
+.sb-logo { padding: 16px 14px 14px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+.sb-wordmark {
+  font-size: 15px; font-weight: 800; color: var(--text-1);
+  letter-spacing: -0.04em; display: flex; align-items: center; gap: 9px;
+}
+.sb-logo-icon {
+  width: 28px; height: 28px; flex-shrink: 0;
+  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-size: 15px; box-shadow: 0 2px 14px rgba(59,130,246,0.40);
+}
+.sb-tag { font-size: 9px; letter-spacing: 0.07em; color: var(--text-3); margin-top: 2px; font-weight: 500; text-transform: uppercase; }
+.sb-section-label {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.13em; color: var(--text-3); padding: 14px 14px 5px;
+}
+.sb-divider { border-top: 1px solid var(--border); margin: 8px 0; }
+.sb-stat-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 14px; font-size: 12px; }
+.sb-stat-label { color: var(--text-3); }
+.sb-stat-val   { color: var(--text-2); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ══ Empty state ════════════════════════════════════════════════ */
+.empty-state { text-align: center; padding: 72px 24px; }
+.empty-icon  { font-size: 40px; margin-bottom: 16px; opacity: 0.13; display: block; }
+.empty-title { font-size: 16px; font-weight: 600; color: var(--text-2); margin-bottom: 8px; }
+.empty-sub   { font-size: 13px; color: var(--text-3); line-height: 1.65; }
+
+/* ══ Misc overrides ═════════════════════════════════════════════ */
+hr { border-color: var(--border) !important; margin: 14px 0 !important; }
+[data-testid="stMarkdownContainer"] p { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+[data-testid="stCheckbox"] span { color: var(--text-2) !important; font-size: 13px !important; }
+[data-testid="stFileUploader"] label { color: var(--text-3) !important; }
+</style>
+""", unsafe_allow_html=True)
+
 # ─── Load Rubric ─────────────────────────────────────────────────────────────
 @st.cache_data
 def load_rubric():
@@ -657,9 +1090,9 @@ def make_gauge(score, title="", height=150):
         }
     ))
     fig.update_layout(
-        paper_bgcolor="#161b22", plot_bgcolor="#161b22",
+        paper_bgcolor="#0f1e30", plot_bgcolor="#0f1e30",
         height=height, margin=dict(l=10, r=10, t=24, b=4),
-        font={"family": "Inter"},
+        font={"family": "Inter", "color": "#4e6680"},
     )
     return fig
 
@@ -2004,8 +2437,11 @@ def add_demo_submissions():
 with st.sidebar:
     st.markdown("""
     <div class="sb-logo">
-        <div class="sb-wordmark">⚙ ForgeOS</div>
-        <div class="sb-tag">Innovation Pipeline</div>
+        <div class="sb-wordmark">
+            <div class="sb-logo-icon">⚙</div>
+            ForgeOS
+        </div>
+        <div class="sb-tag">Innovation OS · Physical Goods</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2044,10 +2480,14 @@ with st.sidebar:
         else:
             st.warning("Submissions already loaded.")
 
-    st.markdown("""
-    <div style="padding: 20px 16px 8px 16px;border-top:1px solid #21262d;margin-top:12px;">
-        <div style="font-size:11px;font-weight:600;color:#8b949e;">ForgeOS v0.2</div>
-        <div style="font-size:10px;color:#6e7681;margin-top:2px;">Day 2 Polish · AI Scoring Engine</div>
+    st.markdown(f"""
+    <div style="padding:16px 14px 12px;border-top:1px solid var(--border);margin-top:12px;">
+        <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.09em;">ForgeOS v0.2</div>
+        <div style="font-size:10px;color:var(--text-3);margin-top:3px;">AI Scoring · Extensive Rubric v2</div>
+        <div style="margin-top:10px;display:flex;align-items:center;gap:6px;">
+          <div style="width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);"></div>
+          <span style="font-size:10px;color:var(--text-3);">Engine ready</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -2057,10 +2497,15 @@ with st.sidebar:
 # ══════════════════════════════════════════════════════════════════════════════
 if page == "Dashboard":
 
-    st.markdown("""
+    st.markdown(f"""
     <div class="forge-topbar">
       <div class="forge-topbar-left">
-        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Dashboard</span></div>
+        <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Dashboard</span></div>
+        <div class="forge-page-tag">Analytics</div>
+      </div>
+      <div class="forge-topbar-status">
+        <div class="forge-status-dot"></div>
+        {total} idea{"s" if total != 1 else ""} tracked
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2071,40 +2516,24 @@ if page == "Dashboard":
     avg_innov = round(sum(s["innovation"] for s in subs if s["innovation"] > 0) / max(sum(1 for s in subs if s["innovation"] > 0), 1), 1)
     avg_feas  = round(sum(s["feasibility"] for s in subs if s["feasibility"] > 0) / max(sum(1 for s in subs if s["feasibility"] > 0), 1), 1)
 
-    st.markdown(f"""
-    <div class="stat-strip">
-      <div class="stat-item">
-        <div class="stat-label">Total Submissions</div>
-        <div class="stat-value">{total}</div>
-        <div class="stat-sub">All time</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Avg Overall Score</div>
-        <div class="stat-value" style="color:{score_hex(avg_score) if total else '#8b949e'}">{avg_score if total else '—'}</div>
-        <div class="stat-sub">Out of 100</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">High Potential</div>
-        <div class="stat-value" style="color:#3fb950">{high_pot}</div>
-        <div class="stat-sub">Score ≥ {THRESHOLDS['green']}</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Approved</div>
-        <div class="stat-value" style="color:#a371f7">{approved}</div>
-        <div class="stat-sub">Proceeding to production</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Avg Innovation</div>
-        <div class="stat-value" style="color:{score_hex(avg_innov) if avg_innov else '#8b949e'}">{avg_innov if avg_innov else '—'}</div>
-        <div class="stat-sub">Innovation criterion</div>
-      </div>
-      <div class="stat-item">
-        <div class="stat-label">Avg Feasibility</div>
-        <div class="stat-value" style="color:{score_hex(avg_feas) if avg_feas else '#8b949e'}">{avg_feas if avg_feas else '—'}</div>
-        <div class="stat-sub">Manufacturing criterion</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
+    _kpi_cols = st.columns(6)
+    _kpi_items = [
+        (_kpi_cols[0], "📋", "Total Ideas",      str(total),                                                                  "All ideas tracked",              "#ddeaf8"),
+        (_kpi_cols[1], "📊", "Avg Score",         str(avg_score) if total else "—",                                           "Out of 100 points",              score_hex(avg_score) if total else "#4e6680"),
+        (_kpi_cols[2], "🚀", "High Potential",    str(high_pot),                                                               f"Score ≥ {THRESHOLDS['green']}",  "#22c55e"),
+        (_kpi_cols[3], "✅", "Approved",           str(approved),                                                               "Moving to production",           "#a78bfa"),
+        (_kpi_cols[4], "💡", "Avg Innovation",    str(avg_innov) if avg_innov else "—",                                        "Innovation criterion",           score_hex(avg_innov) if avg_innov else "#4e6680"),
+        (_kpi_cols[5], "🔧", "Avg Feasibility",   str(avg_feas) if avg_feas else "—",                                         "Manufacturing score",            score_hex(avg_feas) if avg_feas else "#4e6680"),
+    ]
+    for _col, _icon, _label, _val, _sub, _color in _kpi_items:
+        with _col:
+            st.markdown(f"""
+            <div class="kpi-card">
+                <div class="kpi-icon">{_icon}</div>
+                <div class="kpi-label">{_label}</div>
+                <div class="kpi-value" style="color:{_color};">{_val}</div>
+                <div class="kpi-sub">{_sub}</div>
+            </div>""", unsafe_allow_html=True)
 
     if subs:
         # ── Charts row ────────────────────────────────────────────────────────
@@ -2117,16 +2546,16 @@ if page == "Dashboard":
             if not scored_df.empty:
                 fig_hist = px.histogram(
                     scored_df, x="overall", nbins=12,
-                    color_discrete_sequence=["#1f6feb"],
+                    color_discrete_sequence=["#3b82f6"],
                 )
                 fig_hist.update_traces(marker_line_width=0)
                 fig_hist.update_layout(
-                    paper_bgcolor="#161b22", plot_bgcolor="#161b22",
-                    font={"color": "#8d96a3", "family": "Inter", "size": 11},
-                    xaxis=dict(gridcolor="#21262d", color="#8b949e", title="Overall Score"),
-                    yaxis=dict(gridcolor="#21262d", color="#8b949e", title="Count"),
-                    height=220, margin=dict(l=0, r=0, t=8, b=0),
-                    bargap=0.08,
+                    paper_bgcolor="#0f1e30", plot_bgcolor="#0f1e30",
+                    font={"color": "#4e6680", "family": "Inter", "size": 11},
+                    xaxis=dict(gridcolor="#1a2f49", color="#4e6680", title="Overall Score", showgrid=True),
+                    yaxis=dict(gridcolor="#1a2f49", color="#4e6680", title="Count", showgrid=True),
+                    height=230, margin=dict(l=0, r=0, t=8, b=0),
+                    bargap=0.10,
                 )
                 st.plotly_chart(fig_hist, use_container_width=True)
             else:
@@ -2138,17 +2567,17 @@ if page == "Dashboard":
             status_counts.columns = ["Status", "Count"]
             fig_pie = px.pie(
                 status_counts, names="Status", values="Count",
-                color_discrete_sequence=["#1f6feb","#3fb950","#d29922","#a371f7","#f85149"],
+                color_discrete_sequence=["#3b82f6","#22c55e","#f59e0b","#a78bfa","#f43f5e","#38bdf8","#fb923c"],
                 hole=0.6,
             )
             fig_pie.update_layout(
-                paper_bgcolor="#161b22", plot_bgcolor="#161b22",
-                font={"color": "#8d96a3", "family": "Inter", "size": 11},
-                height=220, margin=dict(l=0, r=0, t=8, b=0),
-                legend=dict(font=dict(color="#8d96a3", size=11), bgcolor="#161b22"),
+                paper_bgcolor="#0f1e30", plot_bgcolor="#0f1e30",
+                font={"color": "#4e6680", "family": "Inter", "size": 11},
+                height=230, margin=dict(l=0, r=0, t=8, b=0),
+                legend=dict(font=dict(color="#8aa4c0", size=11), bgcolor="#0f1e30", bordercolor="#1a2f49", borderwidth=1),
                 showlegend=True,
             )
-            fig_pie.update_traces(textfont_color="#e6edf3", textfont_size=11)
+            fig_pie.update_traces(textfont_color="#ddeaf8", textfont_size=11)
             st.plotly_chart(fig_pie, use_container_width=True)
 
         # ── Recent submissions table ───────────────────────────────────────
@@ -2200,14 +2629,20 @@ if page == "Dashboard":
             if sub["stage"] in stage_counts_map:
                 stage_counts_map[sub["stage"]] += 1
 
+        _STAGE_ICONS = {
+            "Intake": "📥", "Concept": "💡", "Validation": "🔬",
+            "Prototyping": "🛠", "Market Test": "📈", "Scaling": "⚡", "Monitoring": "📡",
+        }
         cols = st.columns(len(STAGES))
         for stage, col in zip(STAGES, cols):
             cnt = stage_counts_map.get(stage["name"], 0)
+            _ico = _STAGE_ICONS.get(stage["name"], "●")
             with col:
                 st.markdown(f"""
-                <div class="forge-card" style="text-align:center;padding:14px 10px;border-top:2px solid {stage['color']};">
-                    <div style="font-size:18px;font-weight:700;color:{stage['color']};margin-bottom:4px;">{cnt}</div>
-                    <div style="font-size:11px;font-weight:600;color:#8d96a3;">{stage['name']}</div>
+                <div class="stage-flow-card" style="border-top-color:{stage['color']};">
+                    <div class="stage-flow-icon">{_ico}</div>
+                    <div class="stage-flow-num" style="color:{stage['color']};">{cnt}</div>
+                    <div class="stage-flow-name">{stage['name']}</div>
                 </div>""", unsafe_allow_html=True)
 
     else:
@@ -2226,10 +2661,16 @@ if page == "Dashboard":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Submissions":
 
-    st.markdown("""
+    _sub_scored_ct = sum(1 for s in st.session_state.submissions if s["status"] not in ("New",))
+    st.markdown(f"""
     <div class="forge-topbar">
       <div class="forge-topbar-left">
-        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Submissions</span></div>
+        <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Submissions</span></div>
+        <div class="forge-page-tag">Idea Intake</div>
+      </div>
+      <div class="forge-topbar-status">
+        <div class="forge-status-dot"></div>
+        {_sub_scored_ct} scored
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3033,10 +3474,16 @@ elif page == "Submissions":
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == "Pipeline":
 
-    st.markdown("""
+    _pipe_total = len(st.session_state.submissions)
+    st.markdown(f"""
     <div class="forge-topbar">
       <div class="forge-topbar-left">
-        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Pipeline</span></div>
+        <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Pipeline</span></div>
+        <div class="forge-page-tag">7-Stage Flow</div>
+      </div>
+      <div class="forge-topbar-status">
+        <div class="forge-status-dot"></div>
+        {_pipe_total} in pipeline
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3065,13 +3512,18 @@ elif page == "Pipeline":
     # ── Kanban board ──────────────────────────────────────────────────────────
     st.markdown('<div class="section-hd">Board View</div>', unsafe_allow_html=True)
 
+    _KBOARD_ICONS = {
+        "Intake": "📥", "Concept": "💡", "Validation": "🔬",
+        "Prototyping": "🛠", "Market Test": "📈", "Scaling": "⚡", "Monitoring": "📡",
+    }
     cols = st.columns(len(STAGES))
     for stage, col in zip(STAGES, cols):
         items = stage_map.get(stage["name"], [])
         with col:
+            _kb_icon = _KBOARD_ICONS.get(stage["name"], "●")
             st.markdown(f"""
             <div class="kanban-col-header">
-                <span class="kanban-col-name" style="color:{stage['color']}">{stage['name']}</span>
+                <span class="kanban-col-name" style="color:{stage['color']}">{_kb_icon} {stage['name']}</span>
                 <span class="kanban-count">{len(items)}</span>
             </div>""", unsafe_allow_html=True)
 
@@ -3159,12 +3611,12 @@ elif page == "Pipeline":
             textfont=dict(color="#e6edf3", size=11),
         ))
         fig_bar.update_layout(
-            paper_bgcolor="#161b22", plot_bgcolor="#161b22",
-            font={"color": "#8d96a3", "family": "Inter", "size": 11},
-            xaxis=dict(gridcolor="#21262d", color="#8b949e"),
-            yaxis=dict(gridcolor="#21262d", color="#8b949e", title="Submissions"),
-            height=220, margin=dict(l=0, r=0, t=8, b=0),
-            showlegend=False,
+            paper_bgcolor="#0f1e30", plot_bgcolor="#0f1e30",
+            font={"color": "#4e6680", "family": "Inter", "size": 11},
+            xaxis=dict(gridcolor="#1a2f49", color="#4e6680", showgrid=False),
+            yaxis=dict(gridcolor="#1a2f49", color="#4e6680", title="Submissions", showgrid=True),
+            height=240, margin=dict(l=0, r=0, t=8, b=0),
+            showlegend=False, bargap=0.25,
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
@@ -3177,14 +3629,15 @@ elif page == "Pipeline":
             bar_w = max(int(pct * 100), 2)
             st.markdown(f"""
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-              <span style="width:100px;font-size:11px;color:#8d96a3;text-align:right;flex-shrink:0;">{stage['name']}</span>
-              <div style="flex:1;background:#161b22;border-radius:3px;height:18px;overflow:hidden;border:1px solid #21262d;">
-                <div style="width:{bar_w}%;background:{stage['color']};height:100%;border-radius:2px;
-                            display:flex;align-items:center;padding-left:6px;">
-                  <span style="font-size:10px;color:#0d1117;font-weight:700;">{cnt}</span>
+              <span style="width:108px;font-size:11px;color:var(--text-3);text-align:right;flex-shrink:0;font-weight:500;">{stage['name']}</span>
+              <div style="flex:1;background:var(--surface);border-radius:99px;height:16px;overflow:hidden;border:1px solid var(--border);">
+                <div style="width:{bar_w}%;background:{stage['color']};height:100%;border-radius:99px;
+                            display:flex;align-items:center;padding-left:8px;min-width:22px;
+                            box-shadow:0 0 8px {stage['color']}55;transition:width 0.4s ease;">
+                  <span style="font-size:9px;color:rgba(0,0,0,0.75);font-weight:800;">{cnt if cnt else ''}</span>
                 </div>
               </div>
-              <span style="width:36px;font-size:11px;color:#8b949e;">{int(pct*100)}%</span>
+              <span style="width:36px;font-size:11px;color:var(--text-3);font-weight:600;font-variant-numeric:tabular-nums;">{int(pct*100)}%</span>
             </div>""", unsafe_allow_html=True)
 
     else:
@@ -3206,7 +3659,12 @@ elif page == "Rubric Settings":
     st.markdown("""
     <div class="forge-topbar">
       <div class="forge-topbar-left">
-        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Rubric Settings</span></div>
+        <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Rubric Settings</span></div>
+        <div class="forge-page-tag">Scoring Config</div>
+      </div>
+      <div class="forge-topbar-status">
+        <div class="forge-status-dot"></div>
+        Extensive Rubric v2
       </div>
     </div>
     """, unsafe_allow_html=True)
@@ -3450,10 +3908,10 @@ elif page == "Rubric Settings":
                 textfont=dict(color="#e6edf3", size=11),
             ))
             fig_w.update_layout(
-                paper_bgcolor="#161b22", plot_bgcolor="#161b22",
-                font={"color": "#8d96a3", "family": "Inter", "size": 11},
-                xaxis=dict(gridcolor="#21262d", color="#8b949e", tickangle=-30),
-                yaxis=dict(gridcolor="#21262d", color="#8b949e", title="Weight (%)"),
+                paper_bgcolor="#0f1e30", plot_bgcolor="#0f1e30",
+                font={"color": "#4e6680", "family": "Inter", "size": 11},
+                xaxis=dict(gridcolor="#1a2f49", color="#4e6680", tickangle=-30, showgrid=False),
+                yaxis=dict(gridcolor="#1a2f49", color="#4e6680", title="Weight (%)", showgrid=True),
                 height=300, margin=dict(l=0, r=0, t=8, b=80),
             )
             st.plotly_chart(fig_w, use_container_width=True)
