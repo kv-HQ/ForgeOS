@@ -4,6 +4,7 @@ import os
 import uuid
 import random
 import time
+import hashlib
 from datetime import datetime, timedelta
 import pandas as pd
 import plotly.graph_objects as go
@@ -586,32 +587,236 @@ def make_gauge(score, title="", height=150):
     return fig
 
 def ai_score_submission(submission, rubric_data):
-    category_scores = {}
-    innovation = None
-    feasibility = None
-    for crit in rubric_data.get("criteria", []):
-        base  = random.randint(45, 92)
-        noise = random.randint(-10, 10)
-        s     = max(10, min(100, base + noise))
-        w     = crit.get("weight", 10)
-        key   = crit["criterion"]
-        category_scores[key] = {"name": key, "score": s, "weight": w / 100}
-        if "Innovation" in key:
-            innovation = s
-        if "Feasibility" in key or "Manufacturing" in key:
-            feasibility = s
-    total_w = sum(v["weight"] for v in category_scores.values())
-    overall = round(
-        sum(v["score"] * v["weight"] for v in category_scores.values()) / max(total_w, 0.01),
-        1
-    )
-    overall = min(overall, 100)
-    return {
-        "overall":    overall,
-        "innovation": innovation or random.randint(50, 88),
-        "feasibility":feasibility or random.randint(50, 88),
-        "categories": category_scores,
+    """
+    Simulate a chain-of-thought AI scoring engine.
+
+    Reads all 8 criteria from rubric.json, derives context signals from the
+    submission name/notes, applies gating rules, and returns a fully structured
+    breakdown with per-criterion score (1-10), justification, evidence level,
+    triggered red flags, and gating warnings.
+
+    Swap the internals for a real LLM call when the API is connected.
+    """
+    name  = submission.get("name",  "").lower()
+    notes = submission.get("notes", "").lower()
+    text  = name + " " + notes
+
+    # Seed RNG on submission name → reproducible scores for the same idea
+    seed = int(hashlib.md5(name.encode()).hexdigest()[:8], 16)
+    rng  = random.Random(seed)
+
+    criteria     = rubric_data.get("criteria", [])
+    gating_rules = rubric_data.get("gating_rules", [])
+
+    # ── Keyword signals (positive / negative) per criterion ──────────────────
+    # Words that appear in the submission text boost or penalise scores.
+    SIGNALS = {
+        "Innovation & Novelty": (
+            ["breakthrough", "novel", "patent", "unique", "first", "bio", "mycelium",
+             "self-heal", "nano", "smart", "micro", "carbon", "polymer", "proprietary"],
+            ["me-too", "copy", "basic", "simple", "existing", "commodity"],
+        ),
+        "Market Potential & Saturation": (
+            ["market", "demand", "customer", "growth", "billion", "segment",
+             "untapped", "commercial", "b2b", "validated", "gap"],
+            ["saturated", "small market", "niche", "declining", "crowded"],
+        ),
+        "Technical & Manufacturing Feasibility": (
+            ["prototype", "manufacturing", "supply chain", "bom", "scalable",
+             "production", "material", "motor", "thermal", "compression",
+             "insulation", "packaging", "exoskeleton", "foam", "coating"],
+            ["concept only", "theoretical", "unclear", "impossible", "unproven"],
+        ),
+        "Sustainability & Circularity": (
+            ["biodegradable", "sustainable", "circular", "recyclable", "eco",
+             "mycelium", "bio", "carbon", "lca", "ethical", "packaging", "renewable"],
+            ["plastic", "toxic", "greenwash", "no certification", "virgin"],
+        ),
+        "Regulatory Compliance & Risk": (
+            ["compliance", "certified", "fda", "ce", "regulatory", "standard",
+             "iso", "approval", "testing", "safety"],
+            ["unregulated", "risky", "no compliance", "illegal", "unapproved"],
+        ),
+        "Team & Execution Capability": (
+            ["team", "experience", "expert", "founder", "engineer",
+             "track record", "proven", "background", "led", "built"],
+            ["no team", "solo", "inexperienced", "first time", "no experience"],
+        ),
+        "Business Model & Commercial Viability": (
+            ["revenue", "profit", "margin", "pricing", "unit economics",
+             "commercial", "scaling", "traction", "contract", "letters of intent"],
+            ["no revenue", "unclear model", "free", "give away", "donation"],
+        ),
+        "Evidence Quality & Realism": (
+            ["data", "research", "study", "validated", "tested", "evidence",
+             "pilot", "prototype", "results", "measured", "demonstrated"],
+            ["vague", "hype", "could be", "imagine", "we believe", "guess"],
+        ),
     }
+
+    # ── Justification templates per anchor band ───────────────────────────────
+    JUSTIFICATIONS = {
+        "1-3": [
+            "Insufficient evidence provided; claims are unsubstantiated against rubric anchors.",
+            "Evaluation finds critical gaps. Submission falls below minimum threshold for this criterion.",
+            "Significant weaknesses identified. Immediate remediation required before advancing.",
+        ],
+        "4-6": [
+            "Moderate performance with identifiable gaps. Partial evidence present but not fully compelling.",
+            "Promising signals, though key sub-factors lack depth. Further validation recommended.",
+            "Meets baseline expectations but requires strengthening to unlock higher pipeline stages.",
+        ],
+        "7-10": [
+            "Strong, well-evidenced performance. Submission exceeds sector benchmarks for this criterion.",
+            "Compelling approach with clear validation pathway. Scored highly against all sub-factors.",
+            "Robust evidence base. Demonstrates clear competitive advantage relative to peer submissions.",
+        ],
+    }
+
+    scored_criteria = {}
+
+    for crit in criteria:
+        key       = crit["criterion"]
+        weight    = crit.get("weight", 10)
+        anchors   = crit.get("scoring_anchors", {})
+        rf_list   = crit.get("red_flags", [])
+        sub_facs  = crit.get("sub_factors", [])
+        evidence_req = crit.get("evidence_required", "")
+
+        # Base score (seeded, biased toward mid-range for realism)
+        base = rng.randint(45, 78)
+
+        # Apply keyword signals
+        pos_words, neg_words = SIGNALS.get(key, ([], []))
+        boost   = sum(3 for w in pos_words if w in text)
+        penalty = sum(5 for w in neg_words if w in text)
+        boost   = min(boost, 20)
+        penalty = min(penalty, 22)
+
+        raw = max(10, min(95, base + boost - penalty))
+
+        # Convert to 1-10 scale
+        score_10 = round(raw / 10.0, 1)
+        score_10 = max(1.0, min(10.0, score_10))
+
+        # Determine anchor band
+        if score_10 <= 3:
+            band       = "1-3"
+            anchor_txt = anchors.get("1-3", "Below threshold")
+        elif score_10 <= 6:
+            band       = "4-6"
+            anchor_txt = anchors.get("4-6", "Moderate")
+        else:
+            band       = "7-10"
+            anchor_txt = anchors.get("7-10", "Strong")
+
+        justification   = rng.choice(JUSTIFICATIONS[band])
+        evidence_level  = "Sufficient" if score_10 >= 6 else ("Partial" if score_10 >= 4 else "Insufficient")
+
+        # Detect triggered red flags
+        triggered_flags = [
+            rf for rf in rf_list
+            if any(w in text for w in rf.lower().split() if len(w) > 4)
+        ]
+
+        scored_criteria[key] = {
+            "name":          key,
+            "score_10":      score_10,
+            "score":         round(score_10 * 10),   # 0-100 for gauges/progress
+            "weight":        weight,
+            "weight_frac":   weight / 100.0,
+            "anchor_band":   band,
+            "anchor_text":   anchor_txt,
+            "justification": justification,
+            "evidence":      evidence_level,
+            "evidence_req":  evidence_req,
+            "red_flags":     triggered_flags,
+            "sub_factors":   sub_facs,
+        }
+
+    # ── Weighted overall score (0-100) ────────────────────────────────────────
+    total_w = sum(v["weight_frac"] for v in scored_criteria.values())
+    overall = round(
+        sum(v["score"] * v["weight_frac"] for v in scored_criteria.values()) / max(total_w, 0.01),
+        1,
+    )
+    overall = min(overall, 100.0)
+
+    # ── Apply gating rules from rubric ────────────────────────────────────────
+    GATE_MAP = {
+        "Innovation & Novelty":                  (6.0, "auto-reject"),
+        "Technical & Manufacturing Feasibility": (6.0, "auto-reject"),
+        "Sustainability & Circularity":          (5.0, "high-risk"),
+        "Evidence Quality & Realism":            (4.0, "auto-reject"),
+    }
+    auto_reject_flags = []
+    high_risk_flags   = []
+    for crit_name, (threshold, action) in GATE_MAP.items():
+        if crit_name in scored_criteria:
+            s = scored_criteria[crit_name]["score_10"]
+            if s < threshold:
+                msg = f"{crit_name}: scored {s:.1f}/10 (gate threshold: {threshold}/10)"
+                if action == "auto-reject":
+                    auto_reject_flags.append(msg)
+                else:
+                    high_risk_flags.append(msg)
+
+    return {
+        "overall":     overall,
+        "innovation":  scored_criteria.get("Innovation & Novelty", {}).get("score", 0),
+        "feasibility": scored_criteria.get("Technical & Manufacturing Feasibility", {}).get("score", 0),
+        "categories":  scored_criteria,
+        "auto_reject": auto_reject_flags,
+        "high_risk":   high_risk_flags,
+        "scored_at":   datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+
+
+def generate_stage_summary(submission, new_stage):
+    """
+    Simulate an AI-generated advancement note when moving a submission to the
+    next pipeline stage. Returns a short, professional summary string.
+    """
+    name = submission.get("name", "this idea")
+    score = submission.get("overall", 0)
+    score_txt = f"(overall score: {score})" if score > 0 else ""
+
+    TEMPLATES = {
+        "Concept": [
+            f"Concept review initiated for '{name}' {score_txt}. Key differentiation factors identified; recommend deep-dive on market sizing and IP defensibility.",
+            f"'{name}' enters concept stage {score_txt}. Innovation profile is distinct — next step is structured scoring against all rubric criteria.",
+            f"Concept stage activated. Preliminary assessment of '{name}' shows promise; evidence package flagged for detailed peer review.",
+        ],
+        "Validation": [
+            f"Technical and market validation commenced for '{name}' {score_txt}. BOM review and supplier qualification are the critical next actions.",
+            f"'{name}' advances to validation {score_txt}. Customer discovery interviews and regulatory pathway mapping scheduled this sprint.",
+            f"Validation stage active. Engineering deep-dive and LCA review required for '{name}'; sustainability claims need third-party verification.",
+        ],
+        "Prototyping": [
+            f"Prototype development phase initiated for '{name}' {score_txt}. First-article testing targets set against rubric feasibility benchmarks.",
+            f"'{name}' enters rapid prototyping {score_txt}. Manufacturing partner shortlisted; tooling cost review and materials sourcing in progress.",
+            f"Prototyping sprint begins for '{name}' {score_txt}. Weekly build-test-learn cycles scheduled; target prototype completion in 8 weeks.",
+        ],
+        "Market Test": [
+            f"Market test phase launched for '{name}' {score_txt}. Beta cohort of 50 early adopters identified; NPS and retention tracking activated.",
+            f"'{name}' enters limited market release {score_txt}. Channel partnerships under evaluation; pricing model A/B tested in pilot region.",
+            f"Market test initiated for '{name}' {score_txt}. Real-world performance data will inform the full-scale production decision.",
+        ],
+        "Scaling": [
+            f"Scaling phase activated for '{name}' {score_txt}. Supply chain hardening and volume pricing negotiations commenced.",
+            f"'{name}' approved for full production ramp {score_txt}. QMS deployment and logistics optimisation are sprint priorities.",
+            f"Scaling stage begun for '{name}' {score_txt}. Inventory build plan finalised; channel expansion into 3 new territories approved.",
+        ],
+        "Monitoring": [
+            f"Post-launch monitoring active for '{name}' {score_txt}. KPI dashboard live; 90-day performance review scheduled.",
+            f"'{name}' enters live monitoring {score_txt}. Return rate, NPS, and unit economics tracked weekly against targets.",
+            f"Monitoring phase commenced for '{name}' {score_txt}. Customer feedback loops established; continuous improvement backlog created.",
+        ],
+    }
+
+    options = TEMPLATES.get(new_stage, [f"'{name}' advanced to {new_stage}. Review checklist and assign stage owner."])
+    seed = int(hashlib.md5((name + new_stage).encode()).hexdigest()[:8], 16)
+    return random.Random(seed).choice(options)
 
 def add_demo_submissions():
     demos = [
@@ -626,20 +831,31 @@ def add_demo_submissions():
     for name, ftype, stage, status in demos:
         sid = f"FOS-{st.session_state.next_id}"
         st.session_state.next_id += 1
-        scores = ai_score_submission({}, rubric) if status != "New" else {"overall": 0.0, "innovation": 0.0, "feasibility": 0.0, "categories": {}}
+        sub_stub = {"name": name, "notes": ""}
+        if status != "New":
+            scores = ai_score_submission(sub_stub, rubric)
+        else:
+            scores = {
+                "overall": 0.0, "innovation": 0.0, "feasibility": 0.0,
+                "categories": {}, "auto_reject": [], "high_risk": [], "scored_at": "",
+            }
         days_ago = random.randint(1, 45)
         st.session_state.submissions.append({
-            "id":           sid,
-            "name":         name,
-            "file_type":    ftype,
-            "status":       status,
-            "stage":        stage,
-            "overall":      scores["overall"],
-            "innovation":   scores["innovation"],
-            "feasibility":  scores["feasibility"],
-            "categories":   scores["categories"],
-            "submitted_at": (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d"),
-            "notes":        "",
+            "id":            sid,
+            "name":          name,
+            "file_type":     ftype,
+            "status":        status,
+            "stage":         stage,
+            "overall":       scores["overall"],
+            "innovation":    scores["innovation"],
+            "feasibility":   scores["feasibility"],
+            "categories":    scores["categories"],
+            "auto_reject":   scores.get("auto_reject", []),
+            "high_risk":     scores.get("high_risk", []),
+            "scored_at":     scores.get("scored_at", ""),
+            "stage_summary": generate_stage_summary({"name": name, "overall": scores["overall"]}, stage) if stage != "Intake" else "",
+            "submitted_at":  (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d"),
+            "notes":         "",
         })
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
@@ -900,17 +1116,21 @@ elif page == "Submissions":
                 sid = f"FOS-{st.session_state.next_id}"
                 st.session_state.next_id += 1
                 st.session_state.submissions.append({
-                    "id":           sid,
-                    "name":         idea_name.strip(),
-                    "file_type":    ", ".join(ftypes),
-                    "status":       "New",
-                    "stage":        init_stage,
-                    "overall":      0.0,
-                    "innovation":   0.0,
-                    "feasibility":  0.0,
-                    "categories":   {},
-                    "submitted_at": datetime.now().strftime("%Y-%m-%d"),
-                    "notes":        notes_txt,
+                    "id":            sid,
+                    "name":          idea_name.strip(),
+                    "file_type":     ", ".join(ftypes),
+                    "status":        "New",
+                    "stage":         init_stage,
+                    "overall":       0.0,
+                    "innovation":    0.0,
+                    "feasibility":   0.0,
+                    "categories":    {},
+                    "auto_reject":   [],
+                    "high_risk":     [],
+                    "scored_at":     "",
+                    "stage_summary": "",
+                    "submitted_at":  datetime.now().strftime("%Y-%m-%d"),
+                    "notes":         notes_txt,
                 })
                 st.success(f"Submission {sid} added.")
                 st.rerun()
@@ -935,17 +1155,29 @@ elif page == "Submissions":
                 prog = st.progress(0)
                 msg  = st.empty()
                 for i, sub in enumerate(unscored):
-                    msg.markdown(f'<span style="color:#484f58;font-size:12px;">Scoring {sub["name"]}…</span>', unsafe_allow_html=True)
-                    time.sleep(0.5)
-                    sc = ai_score_submission(sub, rubric)
+                    msg.markdown(
+                        f'<div style="font-size:12px;color:#8b949e;padding:4px 0;">'
+                        f'🤖 Scoring <strong style="color:#e6edf3">{sub["name"]}</strong> '
+                        f'({i+1}/{len(unscored)})…</div>',
+                        unsafe_allow_html=True,
+                    )
+                    time.sleep(0.6)
+                    sc  = ai_score_submission(sub, rubric)
                     idx = next(j for j, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                     st.session_state.submissions[idx].update({
-                        "overall": sc["overall"], "innovation": sc["innovation"],
-                        "feasibility": sc["feasibility"], "categories": sc["categories"], "status": "Scored",
+                        "overall":   sc["overall"],
+                        "innovation":  sc["innovation"],
+                        "feasibility": sc["feasibility"],
+                        "categories":  sc["categories"],
+                        "auto_reject": sc["auto_reject"],
+                        "high_risk":   sc["high_risk"],
+                        "scored_at":   sc["scored_at"],
+                        "status":      "Scored",
                     })
                     prog.progress((i + 1) / len(unscored))
                 msg.empty()
-                st.success(f"Scored {len(unscored)} submission(s).")
+                n_reject = sum(1 for s in st.session_state.submissions if s.get("auto_reject"))
+                st.success(f"Scored {len(unscored)} submission(s). {n_reject} triggered auto-reject gates.")
                 st.rerun()
             else:
                 st.info("No unscored submissions.")
@@ -1007,42 +1239,132 @@ elif page == "Submissions":
                 a1, a2, a3 = st.columns(3)
                 with a1:
                     if st.button("Score", key=f"sc_{sub['id']}"):
-                        with st.spinner(""):
+                        with st.spinner(f"Scoring {sub['name']}…"):
                             time.sleep(0.8)
                             sc2 = ai_score_submission(sub, rubric)
                             idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                             st.session_state.submissions[idx].update({
-                                "overall": sc2["overall"], "innovation": sc2["innovation"],
-                                "feasibility": sc2["feasibility"], "categories": sc2["categories"], "status": "Scored",
+                                "overall":    sc2["overall"],
+                                "innovation":  sc2["innovation"],
+                                "feasibility": sc2["feasibility"],
+                                "categories":  sc2["categories"],
+                                "auto_reject": sc2["auto_reject"],
+                                "high_risk":   sc2["high_risk"],
+                                "scored_at":   sc2["scored_at"],
+                                "status":      "Scored",
                             })
                             st.rerun()
                 with a2:
-                    if st.button("Advance", key=f"adv_{sub['id']}"):
-                        idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                        cur = STAGE_NAMES.index(st.session_state.submissions[idx]["stage"])
-                        if cur < len(STAGE_NAMES) - 1:
-                            st.session_state.submissions[idx]["stage"] = STAGE_NAMES[cur + 1]
-                            st.rerun()
+                    cur_stage_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
+                    at_last = cur_stage_idx >= len(STAGE_NAMES) - 1
+                    if st.button("Advance", key=f"adv_{sub['id']}", disabled=at_last):
+                        idx          = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
+                        new_stage    = STAGE_NAMES[cur_stage_idx + 1]
+                        summary      = generate_stage_summary(st.session_state.submissions[idx], new_stage)
+                        st.session_state.submissions[idx]["stage"]         = new_stage
+                        st.session_state.submissions[idx]["stage_summary"] = summary
+                        st.rerun()
                 with a3:
                     if st.button("Delete", key=f"del_{sub['id']}"):
                         st.session_state.submissions = [s for s in st.session_state.submissions if s["id"] != sub["id"]]
                         st.rerun()
 
-            # Score detail
+            # ── Score detail expander ──────────────────────────────────────────
             if sub["categories"]:
-                with st.expander(f"Score Detail — {sub['name']}", expanded=False):
-                    gauge_cols = st.columns(min(len(sub["categories"]), 4))
-                    for i, (cid, cd) in enumerate(list(sub["categories"].items())[:4]):
-                        with gauge_cols[i]:
-                            st.plotly_chart(make_gauge(cd["score"], cd["name"]), use_container_width=True, key=f"g_{sub['id']}_{i}")
-                    for cid, cd in sub["categories"].items():
-                        c = score_hex(cd["score"])
+                with st.expander(f"AI Score Breakdown — {sub['name']}", expanded=False):
+
+                    # ── Gating warnings ──────────────────────────────────────
+                    ar = sub.get("auto_reject", [])
+                    hr = sub.get("high_risk",   [])
+                    if ar:
+                        ar_items = "".join(f"<li>{r}</li>" for r in ar)
                         st.markdown(f"""
-                        <div style="display:flex;align-items:center;gap:10px;margin:4px 0;">
-                          <span style="width:160px;font-size:11px;color:#8d96a3;flex-shrink:0;">{cd['name']}</span>
-                          <span style="font-size:12px;font-weight:700;color:{c};width:36px;">{cd['score']}</span>
+                        <div style="background:#2b0f0f;border:1px solid #6e1818;border-radius:8px;
+                                    padding:12px 16px;margin-bottom:12px;">
+                          <div style="font-size:11px;font-weight:700;color:#f85149;
+                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+                            ⛔ Auto-Reject Gate Triggered</div>
+                          <ul style="margin:0;padding-left:16px;font-size:12px;color:#f85149;">{ar_items}</ul>
                         </div>""", unsafe_allow_html=True)
-                        st.progress(int(cd["score"]) / 100)
+                    if hr:
+                        hr_items = "".join(f"<li>{r}</li>" for r in hr)
+                        st.markdown(f"""
+                        <div style="background:#2b1f05;border:1px solid #9e6a03;border-radius:8px;
+                                    padding:12px 16px;margin-bottom:12px;">
+                          <div style="font-size:11px;font-weight:700;color:#d29922;
+                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+                            ⚠ High-Risk Flag</div>
+                          <ul style="margin:0;padding-left:16px;font-size:12px;color:#d29922;">{hr_items}</ul>
+                        </div>""", unsafe_allow_html=True)
+
+                    # ── Stage summary ────────────────────────────────────────
+                    summ = sub.get("stage_summary", "")
+                    if summ:
+                        st.markdown(f"""
+                        <div style="background:#0c1e35;border:1px solid #1f6feb44;border-radius:8px;
+                                    padding:12px 16px;margin-bottom:16px;">
+                          <div style="font-size:10px;font-weight:700;color:#58a6ff;
+                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+                            Stage Note</div>
+                          <div style="font-size:12px;color:#b0b8c4;line-height:1.6;">{summ}</div>
+                        </div>""", unsafe_allow_html=True)
+
+                    # ── Top-4 gauges ─────────────────────────────────────────
+                    top4 = list(sub["categories"].items())[:4]
+                    gauge_cols = st.columns(len(top4))
+                    for i, (cid, cd) in enumerate(top4):
+                        with gauge_cols[i]:
+                            st.plotly_chart(
+                                make_gauge(cd["score"], cd["name"]),
+                                use_container_width=True,
+                                key=f"g_{sub['id']}_{i}",
+                            )
+
+                    # ── Per-criterion detail rows ────────────────────────────
+                    st.markdown('<div class="section-hd" style="margin-top:12px;">All Criteria</div>', unsafe_allow_html=True)
+
+                    anchor_colors = {"1-3": "#f85149", "4-6": "#d29922", "7-10": "#3fb950"}
+                    ev_colors     = {"Sufficient": "#3fb950", "Partial": "#d29922", "Insufficient": "#f85149"}
+
+                    for cid, cd in sub["categories"].items():
+                        c        = score_hex(cd["score"])
+                        band_c   = anchor_colors.get(cd.get("anchor_band", "4-6"), "#8b949e")
+                        ev_c     = ev_colors.get(cd.get("evidence", "Partial"), "#8b949e")
+                        s10      = cd.get("score_10", round(cd["score"] / 10, 1))
+                        just_txt = cd.get("justification", "")
+                        ev_lbl   = cd.get("evidence", "Partial")
+                        rf_hits  = cd.get("red_flags", [])
+                        wt       = cd.get("weight", "—")
+
+                        rf_html = ""
+                        if rf_hits:
+                            rf_html = "".join(f'<span style="font-size:10px;color:#f85149;margin-right:8px;">⚑ {rf}</span>' for rf in rf_hits)
+                            rf_html = f'<div style="margin-top:4px;">{rf_html}</div>'
+
+                        st.markdown(f"""
+                        <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;
+                                    padding:12px 16px;margin-bottom:8px;">
+                          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                            <span style="font-size:13px;font-weight:600;color:#e6edf3;">{cid}</span>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                              <span style="font-size:11px;color:#484f58;">Weight: {wt}%</span>
+                              <span style="font-size:14px;font-weight:800;color:{c};">{s10}/10</span>
+                              <span style="font-size:10px;font-weight:600;color:{ev_c};
+                                           background:{ev_c}18;border:1px solid {ev_c}44;
+                                           border-radius:4px;padding:1px 6px;">
+                                {ev_lbl}</span>
+                            </div>
+                          </div>
+                          <div style="background:#21262d;border-radius:2px;height:4px;margin-bottom:8px;">
+                            <div style="width:{cd['score']}%;background:{c};height:100%;border-radius:2px;"></div>
+                          </div>
+                          <div style="font-size:12px;color:#8b949e;line-height:1.5;">{just_txt}</div>
+                          {rf_html}
+                        </div>""", unsafe_allow_html=True)
+
+                    scored_at = sub.get("scored_at", "")
+                    if scored_at:
+                        st.markdown(f'<div style="font-size:11px;color:#484f58;margin-top:8px;text-align:right;">Scored at {scored_at}</div>', unsafe_allow_html=True)
 
             st.markdown("<hr style='margin:2px 0;border-color:#161b22;'>", unsafe_allow_html=True)
 
