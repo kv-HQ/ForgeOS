@@ -1,0 +1,217 @@
+{
+  "rubric_name": "ForgeOS Innovation Rubric v1.0",
+  "description": "Standard evaluation rubric for physical goods innovation submissions",
+  "version": "1.0",
+  "categories": [
+    {
+      "id": "innovation",
+      "name": "Innovation Score",
+      "weight": 0.25,
+      "description": "How novel and differentiated is this idea compared to existing solutions?",
+      "criteria": [
+        {
+          "id": "novelty",
+          "name": "Novelty",
+          "max_score": 10,
+          "description": "Is the idea genuinely new or a meaningful improvement?",
+          "scoring_guide": {
+            "9-10": "Completely novel concept with no close analogues",
+            "7-8": "Significant improvement on existing solutions",
+            "5-6": "Incremental improvement, some differentiation",
+            "3-4": "Minor variation on known solutions",
+            "1-2": "Me-too product with little differentiation"
+          }
+        },
+        {
+          "id": "disruptive_potential",
+          "name": "Disruptive Potential",
+          "max_score": 10,
+          "description": "Could this fundamentally change how things are done?",
+          "scoring_guide": {
+            "9-10": "Category-defining, likely to disrupt entire industry",
+            "7-8": "Strong disruption potential in a meaningful segment",
+            "5-6": "Moderate disruption in a niche",
+            "3-4": "Unlikely to disrupt but could carve a niche",
+            "1-2": "Minimal disruption potential"
+          }
+        },
+        {
+          "id": "ip_protectability",
+          "name": "IP Protectability",
+          "max_score": 10,
+          "description": "Can the innovation be protected via patents or trade secrets?",
+          "scoring_guide": {
+            "9-10": "Strong patent landscape, clearly protectable",
+            "7-8": "Reasonable IP position",
+            "5-6": "Some protection possible",
+            "3-4": "Difficult to protect",
+            "1-2": "Unprotectable commodity"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feasibility",
+      "name": "Feasibility Score",
+      "weight": 0.25,
+      "description": "How realistically can this be developed and manufactured?",
+      "criteria": [
+        {
+          "id": "technical_readiness",
+          "name": "Technical Readiness",
+          "max_score": 10,
+          "description": "What is the current technology readiness level (TRL)?",
+          "scoring_guide": {
+            "9-10": "TRL 7-9, production-ready technology",
+            "7-8": "TRL 5-6, prototype demonstrated",
+            "5-6": "TRL 3-4, proof of concept exists",
+            "3-4": "TRL 1-2, research phase only",
+            "1-2": "Purely theoretical"
+          }
+        },
+        {
+          "id": "manufacturability",
+          "name": "Manufacturability",
+          "max_score": 10,
+          "description": "How straightforward is it to manufacture at scale?",
+          "scoring_guide": {
+            "9-10": "Uses standard manufacturing processes, scalable immediately",
+            "7-8": "Minor manufacturing challenges, solvable",
+            "5-6": "Moderate complexity, requires tooling investment",
+            "3-4": "Significant manufacturing challenges",
+            "1-2": "Not feasibly manufacturable at scale"
+          }
+        },
+        {
+          "id": "resource_requirements",
+          "name": "Resource Requirements",
+          "max_score": 10,
+          "description": "Are the required resources, skills, and capital accessible?",
+          "scoring_guide": {
+            "9-10": "Minimal resources needed, largely in-house capability",
+            "7-8": "Manageable resource requirements",
+            "5-6": "Significant but attainable resource needs",
+            "3-4": "High resource barriers",
+            "1-2": "Prohibitive resource requirements"
+          }
+        }
+      ]
+    },
+    {
+      "id": "market",
+      "name": "Market Potential",
+      "weight": 0.20,
+      "description": "What is the size and accessibility of the target market?",
+      "criteria": [
+        {
+          "id": "market_size",
+          "name": "Market Size (TAM/SAM)",
+          "max_score": 10,
+          "description": "How large is the addressable market?",
+          "scoring_guide": {
+            "9-10": "TAM > $1B, large accessible SAM",
+            "7-8": "TAM $100M–$1B",
+            "5-6": "TAM $10M–$100M",
+            "3-4": "TAM $1M–$10M",
+            "1-2": "TAM < $1M, niche"
+          }
+        },
+        {
+          "id": "customer_need",
+          "name": "Customer Need Validation",
+          "max_score": 10,
+          "description": "Is there validated customer demand?",
+          "scoring_guide": {
+            "9-10": "Proven demand, signed LOIs or early customers",
+            "7-8": "Strong qualitative evidence of need",
+            "5-6": "Reasonable assumption of need",
+            "3-4": "Weak evidence",
+            "1-2": "Speculative or unvalidated"
+          }
+        }
+      ]
+    },
+    {
+      "id": "strategic_fit",
+      "name": "Strategic Fit",
+      "weight": 0.15,
+      "description": "How well does this align with company capabilities and goals?",
+      "criteria": [
+        {
+          "id": "core_competency",
+          "name": "Core Competency Alignment",
+          "max_score": 10,
+          "description": "Does this leverage existing strengths?",
+          "scoring_guide": {
+            "9-10": "Perfect alignment with core strengths",
+            "7-8": "Strong alignment",
+            "5-6": "Moderate alignment",
+            "3-4": "Weak alignment, requires new capabilities",
+            "1-2": "No alignment"
+          }
+        },
+        {
+          "id": "portfolio_synergy",
+          "name": "Portfolio Synergy",
+          "max_score": 10,
+          "description": "Does this complement and strengthen the existing portfolio?",
+          "scoring_guide": {
+            "9-10": "Strong synergies, enhances existing lines",
+            "7-8": "Good synergies",
+            "5-6": "Neutral — standalone value only",
+            "3-4": "Some cannibalization risk",
+            "1-2": "Conflicts with existing portfolio"
+          }
+        }
+      ]
+    },
+    {
+      "id": "sustainability",
+      "name": "Sustainability & Risk",
+      "weight": 0.15,
+      "description": "Long-term viability, ESG impact, and risk profile",
+      "criteria": [
+        {
+          "id": "esg_impact",
+          "name": "ESG / Sustainability Impact",
+          "max_score": 10,
+          "description": "Does this support environmental and social goals?",
+          "scoring_guide": {
+            "9-10": "Strong positive ESG contribution",
+            "7-8": "Good ESG profile",
+            "5-6": "Neutral ESG impact",
+            "3-4": "Some negative ESG concerns",
+            "1-2": "Significant ESG risks"
+          }
+        },
+        {
+          "id": "risk_profile",
+          "name": "Risk Profile",
+          "max_score": 10,
+          "description": "How manageable are technical, market, and execution risks?",
+          "scoring_guide": {
+            "9-10": "Low risk across all dimensions",
+            "7-8": "Manageable risks",
+            "5-6": "Moderate risks with mitigation paths",
+            "3-4": "High risks",
+            "1-2": "Very high, potentially unmanageable risks"
+          }
+        }
+      ]
+    }
+  ],
+  "pipeline_stages": [
+    {"id": 1, "name": "Intake", "description": "Submission received and logged", "color": "#6366f1"},
+    {"id": 2, "name": "Concept", "description": "Initial concept review and scoring", "color": "#3b82f6"},
+    {"id": 3, "name": "Validation", "description": "Technical and market validation", "color": "#06b6d4"},
+    {"id": 4, "name": "Prototyping", "description": "Rapid prototype development", "color": "#10b981"},
+    {"id": 5, "name": "Market Test", "description": "Beta launch and market testing", "color": "#f59e0b"},
+    {"id": 6, "name": "Scaling", "description": "Full production and go-to-market", "color": "#f97316"},
+    {"id": 7, "name": "Monitoring", "description": "Post-launch performance tracking", "color": "#8b5cf6"}
+  ],
+  "scoring_thresholds": {
+    "green": 70,
+    "yellow": 50,
+    "red": 0
+  }
+}

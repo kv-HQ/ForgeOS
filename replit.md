@@ -1,45 +1,50 @@
-# [Project name]
+# ForgeOS
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+AI Agentic Innovation OS for Physical Goods Companies — score, track, and manage product innovation ideas through a 7-stage pipeline using an AI-powered rubric.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `streamlit run app.py` — run ForgeOS (port 5000, configured in `.streamlit/config.toml`)
+- The **ForgeOS** workflow in Replit handles this automatically.
 
 ## Stack
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+- Python 3.11 + Streamlit 1.45
+- Plotly for gauges and charts
+- Pandas for data handling
+- No database — session state (in-memory); persistence can be added later
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
-
-## Architecture decisions
-
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- `app.py` — entire app (sidebar nav, Dashboard, Submissions, Pipeline, Rubric Settings)
+- `rubric.json` — scoring rubric: categories, weights, criteria, thresholds, pipeline stages
+- `.streamlit/config.toml` — Streamlit server config (port 5000, dark theme)
+- `requirements.txt` — Python dependencies
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+ForgeOS has four sections:
 
-## User preferences
+1. **Dashboard** — KPI cards (total submissions, avg score, high-potential count, approved count), score distribution histogram, status pie chart, recent submissions list, pipeline snapshot.
+2. **Submissions** — File uploader (PDF, image, video, text), idea submission form, sortable/filterable table with inline progress bars, per-submission score gauges, AI Score / Advance Stage / Delete actions, bulk "Process All with AI" button.
+3. **Pipeline** — 7-stage flow (Intake → Concept → Validation → Prototyping → Market Test → Scaling → Monitoring) with counts, avg scores, bar chart, per-stage submission list, and a conversion funnel.
+4. **Rubric Settings** — Category weight chart, per-criterion detail cards, raw JSON view, threshold bands (green/yellow/red).
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+## Architecture decisions
+
+- All scoring is simulated AI (random within plausible range weighted by rubric); swap `ai_score_submission()` in `app.py` for a real LLM call when ready.
+- Rubric is loaded from `rubric.json` at startup (cached); editing the file + restarting the app applies changes immediately.
+- Session state stores submissions in memory — add a database (SQLite or Postgres) for persistence.
+- All CSS is injected via `st.markdown(unsafe_allow_html=True)` using a single `<style>` block at the top of `app.py`.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Never use backslash escapes inside nested f-strings in Python 3.11 — extract to a variable first.
+- The `.streamlit/config.toml` is managed by Replit's Streamlit module; do not change `port` or `address`.
+- `pnpm-workspace` tooling (api-server, mockup-sandbox) is separate infrastructure — ForgeOS does not use it.
 
-## Pointers
+## User preferences
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Premium dark UI: blues/greens/neutrals, Mobbin-style admin dashboard.
+- Score color bands: green ≥ 70, yellow 50–69, red < 50.
+- Run with `streamlit run app.py`.
