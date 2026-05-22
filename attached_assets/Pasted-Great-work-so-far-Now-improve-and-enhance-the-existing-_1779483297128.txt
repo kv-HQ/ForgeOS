@@ -1,0 +1,27 @@
+Great work so far! Now improve and enhance the existing ForgeOS Streamlit app with the following:
+
+1. **UX Polish using Mobbin references**
+   - Look in the "mobbin_references" folder for design inspiration screenshots.
+   - Make the entire app look even more premium, clean, and modern: use consistent spacing, professional color palette (blues/greens/neutrals), better card layouts, hover effects, subtle shadows, and clean typography.
+   - Improve the dashboard, submissions table, gauges, pipeline flow, and sidebar to match high-quality Mobbin admin dashboards.
+
+2. **Make AI Scoring Fully Functional**
+   - Update the "AI Score" button and "Process All with AI" button to actually read the full rubric.json (the 8-criteria extensive version we just added).
+   - When scoring a submission, the AI must:
+     - Analyze the submission text/description (or uploaded file content if possible).
+     - Score all 8 criteria (Innovation & Novelty, Market Potential & Saturation, Technical & Manufacturing Feasibility, Sustainability & Circularity, Regulatory Compliance & Risk, Team & Execution Capability, Business Model & Commercial Viability, Evidence Quality & Realism).
+     - Use the exact scoring_anchors, red_flags, and gating_rules from the rubric.
+     - Output structured JSON with per-criterion score (1-10), justification, evidence used, and red flags.
+     - Calculate the weighted overall score (0-100).
+     - Apply the gating rules and show any auto-reject or high-risk warnings.
+   - Use a strong reasoning model (Grok/xAI style chain-of-thought) for scoring. For now, simulate the LLM call with detailed, realistic outputs based on the rubric (we will connect real API later if needed).
+
+3. **Improve Pipeline Interaction**
+   - Make the "Advance Stage" buttons on submissions actually move the idea to the next pipeline stage and generate a short AI summary for that stage.
+
+4. **General Improvements**
+   - Keep all existing features (demo data loader, gauges, charts, table sorting/filtering).
+   - Add loading spinners when scoring.
+   - Make sure the app still runs smoothly with `streamlit run app.py`.
+
+Update app.py and any other files as needed. Make the changes clean and well-commented. After updating, the app should feel like a polished, professional product.
