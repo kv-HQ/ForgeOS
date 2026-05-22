@@ -16,7 +16,19 @@ import plotly.express as px
 _FORGE_LLM_API_KEY  = os.environ.get("FORGE_LLM_API_KEY", "")
 _FORGE_LLM_BASE_URL = os.environ.get("FORGE_LLM_BASE_URL", "https://api.x.ai/v1").rstrip("/")
 _FORGE_LLM_MODEL    = os.environ.get("FORGE_LLM_MODEL", "grok-3")
-_LLM_AVAILABLE      = bool(_FORGE_LLM_API_KEY)
+_LLM_AVAILABLE      = bool(_FORGE_LLM_API_KEY)   # True only when env var is set
+
+
+def _effective_llm_key() -> str:
+    """Return the API key to use: env var takes priority, then session-entered key."""
+    if _FORGE_LLM_API_KEY:
+        return _FORGE_LLM_API_KEY
+    return st.session_state.get("session_llm_key", "").strip()
+
+
+def _llm_ready() -> bool:
+    """True when a usable API key is available (env var or session entry)."""
+    return bool(_effective_llm_key())
 
 # ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -537,6 +549,8 @@ if "flash_msg" not in st.session_state:
     st.session_state.flash_msg = None
 if "scoring_mode" not in st.session_state:
     st.session_state.scoring_mode = "Simulated"
+if "session_llm_key" not in st.session_state:
+    st.session_state.session_llm_key = ""
 
 STAGES = rubric.get("pipeline_stages", [
     {"id": 1, "name": "Intake",       "color": "#6e40c9"},
@@ -1034,7 +1048,7 @@ INSTRUCTIONS:
         data    = payload,
         headers = {
             "Content-Type":  "application/json",
-            "Authorization": f"Bearer {_FORGE_LLM_API_KEY}",
+            "Authorization": f"Bearer {_effective_llm_key()}",
         },
         method  = "POST",
     )
@@ -1132,8 +1146,8 @@ def route_scoring(submission, rubric_data):
     """
     mode = st.session_state.get("scoring_mode", "Simulated")
     if mode == "Real LLM":
-        if not _LLM_AVAILABLE:
-            return ai_score_submission(submission, rubric_data), "FORGE_LLM_API_KEY not set — fell back to Simulated scoring."
+        if not _llm_ready():
+            return ai_score_submission(submission, rubric_data), "No API key available — fell back to Simulated scoring."
         try:
             result = ai_score_submission_llm(submission, rubric_data)
             return result, None
@@ -2384,11 +2398,55 @@ elif page == "Rubric Settings":
         # ── Scoring Mode ──────────────────────────────────────────────────────
         st.markdown('<div class="section-hd">Scoring Mode</div>', unsafe_allow_html=True)
 
-        llm_note = ""
-        if not _LLM_AVAILABLE:
-            llm_note = " (requires FORGE_LLM_API_KEY)"
+        # Determine key source so UI can react without rerunning
+        _key_from_env     = bool(_FORGE_LLM_API_KEY)
+        _key_from_session = bool(st.session_state.get("session_llm_key", "").strip())
+        _key_available    = _key_from_env or _key_from_session
 
-        mode_options = ["Simulated", f"Real LLM{llm_note}"]
+        # ── In-app API key entry (shown only when env var is absent) ───────────
+        if not _key_from_env:
+            st.markdown("""
+            <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;
+                        padding:14px 16px;margin-bottom:14px;">
+              <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;
+                          letter-spacing:0.06em;margin-bottom:6px;">API Key — Session Only</div>
+              <div style="font-size:12px;color:#8b949e;margin-bottom:10px;">
+                Paste an OpenAI-compatible API key to enable Real LLM scoring for this session.
+                The key is held in memory only and is never written to disk or sent anywhere except
+                the configured LLM endpoint (<code style="color:#58a6ff;">api.x.ai/v1</code> by default).
+              </div>
+            </div>""", unsafe_allow_html=True)
+
+            entered_key = st.text_input(
+                "API Key",
+                value=st.session_state.session_llm_key,
+                type="password",
+                placeholder="sk-… or xai-…",
+                label_visibility="collapsed",
+                help="OpenAI-compatible API key. Stored in session memory only — cleared when you close the tab.",
+            )
+            # Persist without rerun so the radio below reflects the new state immediately
+            if entered_key != st.session_state.session_llm_key:
+                st.session_state.session_llm_key = entered_key.strip()
+                _key_from_session = bool(st.session_state.session_llm_key)
+                _key_available    = _key_from_session
+
+            if _key_from_session:
+                key_preview = st.session_state.session_llm_key[:6] + "••••••••"
+                st.markdown(
+                    f'<div style="font-size:11px;color:#3fb950;margin-top:4px;">'
+                    f'✓ Key entered ({key_preview}) · session only · not persisted</div>',
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.markdown(
+                    '<div style="font-size:11px;color:#6e7681;margin-top:4px;">'
+                    'No key entered — Real LLM mode unavailable.</div>',
+                    unsafe_allow_html=True,
+                )
+
+        llm_option_label = "Real LLM" if _key_available else "Real LLM (no key)"
+        mode_options = ["Simulated", llm_option_label]
         current_mode = st.session_state.get("scoring_mode", "Simulated")
         current_idx  = 1 if current_mode == "Real LLM" else 0
 
@@ -2400,29 +2458,35 @@ elif page == "Rubric Settings":
                 index=current_idx,
                 label_visibility="collapsed",
                 help="Simulated uses keyword-weighted heuristics. Real LLM sends data to the configured AI endpoint.",
+                disabled=not _key_available and current_mode != "Real LLM",
             )
-            new_mode = "Real LLM" if chosen.startswith("Real LLM") else "Simulated"
+            new_mode = "Real LLM" if chosen.startswith("Real LLM") and _key_available else "Simulated"
             if new_mode != current_mode:
                 st.session_state.scoring_mode = new_mode
                 st.rerun()
         with scol2:
             if new_mode == "Real LLM":
-                if _LLM_AVAILABLE:
-                    st.markdown(f"""
-                    <div style="background:#0d2b1a;border:1px solid #238636;border-radius:8px;padding:10px 14px;">
-                      <div style="font-size:11px;font-weight:700;color:#3fb950;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Real LLM Active</div>
-                      <div style="font-size:12px;color:#b0b8c4;">Model: <code style="color:#58a6ff;">{_FORGE_LLM_MODEL}</code></div>
-                      <div style="font-size:12px;color:#b0b8c4;">Endpoint: <code style="color:#58a6ff;">{_FORGE_LLM_BASE_URL}</code></div>
-                      <div style="font-size:11px;color:#8b949e;margin-top:4px;">API key detected · Uploaded PDFs are extracted and sent as context.</div>
+                key_note = "API key from environment variable." if _key_from_env else "API key entered for this session — not persisted."
+                st.markdown(f"""
+                <div style="background:#0d2b1a;border:1px solid #238636;border-radius:8px;padding:10px 14px;">
+                  <div style="font-size:11px;font-weight:700;color:#3fb950;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Real LLM Active</div>
+                  <div style="font-size:12px;color:#b0b8c4;">Model: <code style="color:#58a6ff;">{_FORGE_LLM_MODEL}</code></div>
+                  <div style="font-size:12px;color:#b0b8c4;">Endpoint: <code style="color:#58a6ff;">{_FORGE_LLM_BASE_URL}</code></div>
+                  <div style="font-size:11px;color:#8b949e;margin-top:4px;">{key_note} Uploaded PDFs are extracted and sent as context.</div>
+                </div>""", unsafe_allow_html=True)
+            else:
+                if not _key_available and not _key_from_env:
+                    st.markdown("""
+                    <div style="background:#1c1207;border:1px solid #9e6a03;border-radius:8px;padding:10px 14px;">
+                      <div style="font-size:11px;font-weight:700;color:#d29922;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Real LLM Unavailable</div>
+                      <div style="font-size:12px;color:#8b949e;">Paste an API key above to unlock Real LLM scoring, or set the <code style="color:#58a6ff;">FORGE_LLM_API_KEY</code> environment variable for a persistent connection.</div>
                     </div>""", unsafe_allow_html=True)
                 else:
-                    st.warning("FORGE_LLM_API_KEY is not set. Set this environment variable to enable real LLM scoring. Scoring will fall back to Simulated mode.", icon="⚠️")
-            else:
-                st.markdown("""
-                <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:10px 14px;">
-                  <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Simulated Mode</div>
-                  <div style="font-size:12px;color:#8b949e;">Uses keyword signals and rubric-anchored heuristics. Reproducible — same idea always scores the same. No API key required.</div>
-                </div>""", unsafe_allow_html=True)
+                    st.markdown("""
+                    <div style="background:#161b22;border:1px solid #21262d;border-radius:8px;padding:10px 14px;">
+                      <div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;">Simulated Mode</div>
+                      <div style="font-size:12px;color:#8b949e;">Uses keyword signals and rubric-anchored heuristics. Reproducible — same idea always scores the same. No API key required.</div>
+                    </div>""", unsafe_allow_html=True)
 
         # ── Tabs ──────────────────────────────────────────────────────────────
         tab_crit, tab_gate, tab_chart, tab_json = st.tabs(["Criteria", "Gating Rules", "Weight Chart", "Raw JSON"])
