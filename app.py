@@ -55,13 +55,13 @@ st.markdown("""
     cursor: pointer !important;
     font-size: 13px !important;
     font-weight: 500 !important;
-    color: #8d96a3 !important;
+    color: #b0b8c4 !important;
     transition: background 0.15s, color 0.15s !important;
     border: none !important;
 }
 [data-testid="stSidebar"] .stRadio > div > label:hover {
     background: #161b22 !important;
-    color: #e6edf3 !important;
+    color: #f0f6fc !important;
 }
 [data-testid="stSidebar"] .stRadio > div > label[data-baseweb="radio"] { }
 [data-testid="stSidebar"] .stRadio [aria-checked="true"] ~ span,
@@ -103,11 +103,11 @@ st.markdown("""
 }
 .forge-breadcrumb {
     font-size: 12px;
-    color: #484f58;
+    color: #7d8490;
     font-weight: 500;
 }
 .forge-breadcrumb span {
-    color: #e6edf3;
+    color: #f0f6fc;
     font-weight: 600;
     font-size: 14px;
 }
@@ -141,7 +141,7 @@ st.markdown("""
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #484f58;
+    color: #7d8490;
     margin-bottom: 6px;
     white-space: nowrap;
     overflow: hidden;
@@ -150,13 +150,13 @@ st.markdown("""
 .stat-value {
     font-size: 22px;
     font-weight: 700;
-    color: #e6edf3;
+    color: #f0f6fc;
     line-height: 1;
     margin-bottom: 4px;
 }
 .stat-sub {
     font-size: 11px;
-    color: #484f58;
+    color: #7d8490;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -170,7 +170,7 @@ st.markdown("""
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #484f58;
+    color: #8b949e;
     margin: 24px 0 12px 0;
     padding-bottom: 8px;
     border-bottom: 1px solid #21262d;
@@ -238,19 +238,19 @@ st.markdown("""
 .forge-td {
     padding: 10px 12px;
     font-size: 13px;
-    color: #8d96a3;
+    color: #b0b8c4;
     vertical-align: middle;
 }
-.forge-td-primary { color: #e6edf3; font-weight: 500; }
+.forge-td-primary { color: #f0f6fc; font-weight: 500; }
 .forge-id {
     font-size: 11px;
     font-weight: 600;
-    color: #484f58;
+    color: #8b949e;
     font-family: 'SF Mono', monospace !important;
     background: #161b22;
     padding: 2px 6px;
     border-radius: 4px;
-    border: 1px solid #21262d;
+    border: 1px solid #30363d;
 }
 
 /* ══ Kanban column ══════════════════════════════════════════ */
@@ -265,22 +265,22 @@ st.markdown("""
 .kanban-col-name {
     font-size: 12px;
     font-weight: 600;
-    color: #8d96a3;
+    color: #b0b8c4;
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
 .kanban-count {
     font-size: 11px;
     font-weight: 600;
-    color: #484f58;
+    color: #8b949e;
     background: #161b22;
-    border: 1px solid #21262d;
+    border: 1px solid #30363d;
     border-radius: 9999px;
     padding: 1px 7px;
 }
 .kanban-card {
     background: #161b22;
-    border: 1px solid #21262d;
+    border: 1px solid #30363d;
     border-radius: 6px;
     padding: 10px 12px;
     margin-bottom: 8px;
@@ -288,29 +288,29 @@ st.markdown("""
     cursor: default;
 }
 .kanban-card:hover {
-    border-color: #30363d;
+    border-color: #484f58;
     box-shadow: 0 2px 12px #00000040;
 }
 .kanban-card-title {
     font-size: 12px;
     font-weight: 500;
-    color: #e6edf3;
+    color: #f0f6fc;
     margin-bottom: 6px;
     line-height: 1.4;
 }
 .kanban-card-meta {
     font-size: 11px;
-    color: #484f58;
+    color: #7d8490;
     display: flex;
     align-items: center;
     justify-content: space-between;
 }
 .kanban-empty {
     font-size: 12px;
-    color: #30363d;
+    color: #484f58;
     text-align: center;
     padding: 20px 8px;
-    border: 1px dashed #21262d;
+    border: 1px dashed #30363d;
     border-radius: 6px;
 }
 
@@ -490,8 +490,8 @@ st.markdown("""
     padding: 4px 16px;
     font-size: 12px;
 }
-.sb-stat-label { color: #484f58; }
-.sb-stat-val   { color: #8d96a3; font-weight: 600; }
+.sb-stat-label { color: #8b949e; }
+.sb-stat-val   { color: #b0b8c4; font-weight: 600; }
 
 /* ══ Empty state ════════════════════════════════════════════ */
 .empty-state {
@@ -499,12 +499,12 @@ st.markdown("""
     padding: 60px 24px;
 }
 .empty-icon  { font-size: 32px; margin-bottom: 12px; opacity: 0.3; }
-.empty-title { font-size: 15px; font-weight: 600; color: #484f58; margin-bottom: 6px; }
-.empty-sub   { font-size: 13px; color: #30363d; }
+.empty-title { font-size: 15px; font-weight: 600; color: #8b949e; margin-bottom: 6px; }
+.empty-sub   { font-size: 13px; color: #484f58; }
 
 /* ══ Overrides ══════════════════════════════════════════════ */
-hr { border-color: #21262d !important; margin: 12px 0 !important; }
-[data-testid="stMarkdownContainer"] p { font-size: 13px; color: #8d96a3; }
+hr { border-color: #30363d !important; margin: 12px 0 !important; }
+[data-testid="stMarkdownContainer"] p { font-size: 13px; color: #b0b8c4; }
 </style>
 """, unsafe_allow_html=True)
 
