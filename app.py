@@ -573,9 +573,9 @@ def make_gauge(score, title="", height=150):
             "bordercolor": "#21262d",
             "borderwidth": 1,
             "steps": [
-                {"range": [0, THRESHOLDS["yellow"]], "color": "#2b0f0f18"},
-                {"range": [THRESHOLDS["yellow"], THRESHOLDS["green"]], "color": "#2b1f0518"},
-                {"range": [THRESHOLDS["green"], 100], "color": "#0d2b1a18"},
+                {"range": [0,  40],  "color": "#3d1515"},
+                {"range": [40, 70],  "color": "#3d2e08"},
+                {"range": [70, 100], "color": "#0d2b1a"},
             ],
         }
     ))
