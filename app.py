@@ -2417,6 +2417,10 @@ elif page == "Submissions":
                 prog_bar    = st.progress(0.0)
                 dash_header = st.empty()
                 dash_grid   = st.empty()
+                log_slot    = st.empty()
+
+                # Accumulates plain-data log rows; each entry is a dict
+                log_entries_: list[dict] = []
 
                 # ── Thread-safe in-flight tracking ──────────────────────────────
                 # active_ids: IDs whose worker is currently executing (not queued)
@@ -2505,6 +2509,57 @@ elif page == "Submissions":
                         f'gap:8px;padding:4px 0 10px;">{cards_html}</div>',
                         unsafe_allow_html=True,
                     )
+
+                def _render_log_():
+                    """Re-render the scrollable progress log panel."""
+                    if not log_entries_:
+                        log_slot.empty()
+                        return
+                    rows_html = ""
+                    for entry in reversed(log_entries_):
+                        name_disp = (entry["name"][:28] + "…") if len(entry["name"]) > 28 else entry["name"]
+                        sc_val    = entry["score"]
+                        sc_color  = score_hex(sc_val)
+                        status    = entry["status"]
+                        if status == "rate-limited":
+                            badge_color = "#f85149"
+                            badge_bg    = "rgba(248,81,73,0.12)"
+                            badge_label = "Rate-limited"
+                        elif status == "fallback":
+                            badge_color = "#d29922"
+                            badge_bg    = "rgba(210,153,34,0.12)"
+                            badge_label = "Fallback"
+                        else:
+                            badge_color = "#3fb950"
+                            badge_bg    = "rgba(63,185,80,0.12)"
+                            badge_label = "Scored"
+                        rows_html += (
+                            f'<div style="display:flex;align-items:center;gap:10px;'
+                            f'padding:5px 10px;border-bottom:1px solid #21262d;font-size:12px;">'
+                            f'<span style="color:#484f58;min-width:50px;">{entry["ts"]}</span>'
+                            f'<span style="color:#e6edf3;flex:1;white-space:nowrap;overflow:hidden;'
+                            f'text-overflow:ellipsis;">{name_disp}</span>'
+                            f'<span style="color:{sc_color};font-weight:700;min-width:32px;'
+                            f'text-align:right;">{sc_val}</span>'
+                            f'<span style="font-size:10px;font-weight:600;color:{badge_color};'
+                            f'background:{badge_bg};padding:1px 7px;border-radius:20px;'
+                            f'min-width:76px;text-align:center;">{badge_label}</span>'
+                            f'</div>'
+                        )
+                    n_done = len(log_entries_)
+                    panel_html = (
+                        f'<details open style="margin-top:8px;">'
+                        f'<summary style="cursor:pointer;font-size:12px;font-weight:600;'
+                        f'color:#8b949e;padding:4px 2px;user-select:none;">'
+                        f'Progress Log &nbsp;<span style="color:#58a6ff">{n_done}</span> / {n} completed'
+                        f'</summary>'
+                        f'<div style="max-height:180px;overflow-y:auto;background:#0d1117;'
+                        f'border:1px solid #21262d;border-radius:6px;margin-top:4px;">'
+                        f'{rows_html}'
+                        f'</div>'
+                        f'</details>'
+                    )
+                    log_slot.markdown(panel_html, unsafe_allow_html=True)
 
                 # Initial render — all Pending
                 _render_bulk_dashboard_()
@@ -2602,7 +2657,15 @@ elif page == "Submissions":
                         completed_ids_.add(sub_id)
                         card_states_[sub_id]["state"] = "Done"
                         card_states_[sub_id]["score"] = sc["overall"]
+                        log_status = "rate-limited" if is_rate else ("fallback" if warn else "scored")
+                        log_entries_.append({
+                            "ts":     datetime.now().strftime("%H:%M:%S"),
+                            "name":   id_to_name.get(sub_id, sub_id),
+                            "score":  sc["overall"],
+                            "status": log_status,
+                        })
                         _render_bulk_dashboard_()
+                        _render_log_()
 
                 # ── Sequential fallback for any still-New after rate-limit ──────
                 still_new = [s for s in st.session_state.submissions if s["status"] == "New"]
@@ -2628,11 +2691,19 @@ elif page == "Submissions":
                         completed_ids_.add(sub["id"])
                         card_states_[sub["id"]]["state"] = "Done"
                         card_states_[sub["id"]]["score"] = sc["overall"]
+                        log_entries_.append({
+                            "ts":     datetime.now().strftime("%H:%M:%S"),
+                            "name":   sub["name"],
+                            "score":  sc["overall"],
+                            "status": "fallback",
+                        })
                         _render_bulk_dashboard_()
+                        _render_log_()
 
                 # ── Summary ────────────────────────────────────────────────────
                 dash_header.empty()
                 dash_grid.empty()
+                log_slot.empty()
                 prog_bar.progress(1.0)
                 if rate_limit_hits:
                     st.warning(
