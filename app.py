@@ -9,324 +9,511 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-# ─── Page Config ────────────────────────────────────────────────────────────
+# ─── Page Config ─────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="ForgeOS — Innovation OS",
+    page_title="ForgeOS",
     page_icon="⚙️",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# ─── Custom CSS ─────────────────────────────────────────────────────────────
+# ─── Design System & CSS ─────────────────────────────────────────────────────
 st.markdown("""
 <style>
-/* ── Global reset ─────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+/* ══ Reset & base ══════════════════════════════════════════ */
+*, html, body, [class*="css"] {
+    font-family: 'Inter', -apple-system, sans-serif !important;
+    box-sizing: border-box;
 }
+.stApp { background: #0d1117; }
 
-/* ── Sidebar ──────────────────────────────── */
+/* ══ Sidebar ════════════════════════════════════════════════ */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
-    border-right: 1px solid #334155;
+    background: #010409 !important;
+    border-right: 1px solid #21262d !important;
+    min-width: 220px !important;
+    max-width: 220px !important;
 }
-[data-testid="stSidebar"] * {
-    color: #e2e8f0 !important;
+[data-testid="stSidebar"] > div { padding: 0 !important; }
+[data-testid="stSidebarContent"] { padding: 0 !important; }
+
+/* Hide default radio label */
+[data-testid="stSidebar"] .stRadio > label { display: none !important; }
+[data-testid="stSidebar"] .stRadio > div {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1px !important;
 }
-[data-testid="stSidebarNav"] {
-    padding-top: 1rem;
+[data-testid="stSidebar"] .stRadio > div > label {
+    display: flex !important;
+    align-items: center !important;
+    padding: 6px 12px 6px 16px !important;
+    border-radius: 6px !important;
+    margin: 1px 6px !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #8d96a3 !important;
+    transition: background 0.15s, color 0.15s !important;
+    border: none !important;
+}
+[data-testid="stSidebar"] .stRadio > div > label:hover {
+    background: #161b22 !important;
+    color: #e6edf3 !important;
+}
+[data-testid="stSidebar"] .stRadio > div > label[data-baseweb="radio"] { }
+[data-testid="stSidebar"] .stRadio [aria-checked="true"] ~ span,
+[data-testid="stSidebar"] .stRadio input:checked ~ span {
+    color: #e6edf3 !important;
+}
+[data-testid="stSidebar"] .stRadio > div > label > div:first-child {
+    display: none !important;
+}
+[data-testid="stSidebar"] .stRadio > div > label > div:last-child > p {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: inherit !important;
+    margin: 0 !important;
 }
 
-/* ── Top header bar ───────────────────────── */
-.forge-header {
-    background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
-    border-radius: 12px;
-    padding: 28px 36px;
-    margin-bottom: 24px;
-    border: 1px solid #1e40af33;
-    position: relative;
+/* ══ Main content padding ═══════════════════════════════════ */
+.main .block-container {
+    padding: 0 !important;
+    max-width: 100% !important;
+}
+
+/* ══ Top bar ════════════════════════════════════════════════ */
+.forge-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 28px;
+    border-bottom: 1px solid #21262d;
+    background: #0d1117;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+.forge-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.forge-breadcrumb {
+    font-size: 12px;
+    color: #484f58;
+    font-weight: 500;
+}
+.forge-breadcrumb span {
+    color: #e6edf3;
+    font-weight: 600;
+    font-size: 14px;
+}
+.forge-topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ══ Page content wrapper ═══════════════════════════════════ */
+.page-content { padding: 24px 28px; }
+
+/* ══ Stat strip (Apollo-style) ══════════════════════════════ */
+.stat-strip {
+    display: flex;
+    border: 1px solid #21262d;
+    border-radius: 8px;
     overflow: hidden;
+    background: #161b22;
+    margin-bottom: 20px;
 }
-.forge-header::before {
-    content: '';
-    position: absolute;
-    top: -60px; right: -60px;
-    width: 200px; height: 200px;
-    background: radial-gradient(circle, #3b82f620 0%, transparent 70%);
-    border-radius: 50%;
+.stat-item {
+    flex: 1;
+    padding: 16px 20px;
+    border-right: 1px solid #21262d;
+    min-width: 0;
 }
-.forge-header h1 {
-    font-size: 2rem;
+.stat-item:last-child { border-right: none; }
+.stat-label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #484f58;
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.stat-value {
+    font-size: 22px;
     font-weight: 700;
-    background: linear-gradient(90deg, #60a5fa, #34d399);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0 0 4px 0;
+    color: #e6edf3;
+    line-height: 1;
+    margin-bottom: 4px;
 }
-.forge-header p {
-    color: #94a3b8;
-    margin: 0;
-    font-size: 0.95rem;
+.stat-sub {
+    font-size: 11px;
+    color: #484f58;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+.stat-delta-up   { color: #3fb950; font-size: 11px; font-weight: 600; }
+.stat-delta-down { color: #f85149; font-size: 11px; font-weight: 600; }
 
-/* ── Metric cards ─────────────────────────── */
-.metric-card {
-    background: #1e293b;
-    border-radius: 12px;
-    padding: 20px 24px;
-    border: 1px solid #334155;
-    transition: border-color 0.2s, transform 0.2s;
-    cursor: default;
-}
-.metric-card:hover {
-    border-color: #3b82f6;
-    transform: translateY(-2px);
-}
-.metric-card .metric-label {
-    font-size: 0.78rem;
+/* ══ Section header ══════════════════════════════════════════ */
+.section-hd {
+    font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #64748b;
-    margin-bottom: 8px;
+    color: #484f58;
+    margin: 24px 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #21262d;
 }
-.metric-card .metric-value {
-    font-size: 2rem;
+
+/* ══ Card ════════════════════════════════════════════════════ */
+.forge-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 16px 20px;
+    transition: border-color 0.15s;
+}
+.forge-card:hover { border-color: #30363d; }
+
+/* ══ Score badge ════════════════════════════════════════════ */
+.badge-score {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
     font-weight: 700;
-    color: #f1f5f9;
-    line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
-.metric-card .metric-sub {
-    font-size: 0.8rem;
-    color: #64748b;
-    margin-top: 6px;
-}
-.metric-card .metric-badge {
+.badge-green  { background: #0d2b1a; color: #3fb950; border: 1px solid #238636; }
+.badge-yellow { background: #2b1f05; color: #d29922; border: 1px solid #9e6a03; }
+.badge-red    { background: #2b0f0f; color: #f85149; border: 1px solid #6e1818; }
+
+/* ══ Status pill ════════════════════════════════════════════ */
+.pill {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 9999px;
-    font-size: 0.72rem;
+    font-size: 11px;
     font-weight: 600;
-    margin-top: 8px;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
 }
-.badge-green { background: #052e16; color: #4ade80; }
-.badge-blue  { background: #0c1a3b; color: #60a5fa; }
-.badge-amber { background: #2d1a03; color: #fbbf24; }
-.badge-purple{ background: #1e0936; color: #c084fc; }
+.pill-new      { background: #0c1e35; color: #58a6ff; border: 1px solid #1f6feb44; }
+.pill-scored   { background: #0d2b1a; color: #3fb950; border: 1px solid #23863644; }
+.pill-review   { background: #2b1f05; color: #d29922; border: 1px solid #9e6a0344; }
+.pill-approved { background: #1b0f2e; color: #a371f7; border: 1px solid #6e40c944; }
+.pill-rejected { background: #2b0f0f; color: #f85149; border: 1px solid #6e181844; }
 
-/* ── Section titles ───────────────────────── */
-.section-title {
-    font-size: 1.1rem;
+/* ══ Table ═══════════════════════════════════════════════════ */
+.forge-table { width: 100%; border-collapse: collapse; }
+.forge-th {
+    font-size: 11px;
     font-weight: 600;
-    color: #e2e8f0;
-    margin: 24px 0 16px 0;
-    padding-bottom: 8px;
-    border-bottom: 1px solid #334155;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #484f58;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid #21262d;
+    white-space: nowrap;
+}
+.forge-tr {
+    border-bottom: 1px solid #161b22;
+    transition: background 0.1s;
+}
+.forge-tr:hover { background: #161b22; }
+.forge-td {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #8d96a3;
+    vertical-align: middle;
+}
+.forge-td-primary { color: #e6edf3; font-weight: 500; }
+.forge-id {
+    font-size: 11px;
+    font-weight: 600;
+    color: #484f58;
+    font-family: 'SF Mono', monospace !important;
+    background: #161b22;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #21262d;
 }
 
-/* ── Score badge ──────────────────────────── */
-.score-green { color: #4ade80; font-weight: 700; }
-.score-yellow{ color: #fbbf24; font-weight: 700; }
-.score-red   { color: #f87171; font-weight: 700; }
-
-/* ── Status pill ──────────────────────────── */
-.status-pill {
-    display: inline-block;
-    padding: 3px 12px;
+/* ══ Kanban column ══════════════════════════════════════════ */
+.kanban-col-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0 10px 0;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #21262d;
+}
+.kanban-col-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: #8d96a3;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+.kanban-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: #484f58;
+    background: #161b22;
+    border: 1px solid #21262d;
     border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    padding: 1px 7px;
 }
-.status-new      { background:#1e3a5f; color:#60a5fa; }
-.status-scored   { background:#052e16; color:#4ade80; }
-.status-review   { background:#2d1a03; color:#fbbf24; }
-.status-approved { background:#1a0936; color:#c084fc; }
-.status-rejected { background:#2a0a0a; color:#f87171; }
-
-/* ── Pipeline stage card ──────────────────── */
-.stage-card {
-    background: #1e293b;
-    border-radius: 10px;
-    padding: 16px;
-    text-align: center;
-    border: 1px solid #334155;
-    transition: all 0.2s;
-    position: relative;
+.kanban-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    cursor: default;
 }
-.stage-card:hover {
-    transform: translateY(-3px);
-    border-color: #3b82f6;
-    box-shadow: 0 8px 24px #3b82f620;
+.kanban-card:hover {
+    border-color: #30363d;
+    box-shadow: 0 2px 12px #00000040;
 }
-.stage-number {
-    width: 32px; height: 32px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.8rem; font-weight: 700;
-    margin: 0 auto 10px auto;
-}
-.stage-name {
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #e2e8f0;
+.kanban-card-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: #e6edf3;
     margin-bottom: 6px;
-}
-.stage-desc {
-    font-size: 0.72rem;
-    color: #64748b;
     line-height: 1.4;
 }
-.stage-count {
-    font-size: 1.4rem;
-    font-weight: 700;
-    margin: 8px 0 2px 0;
+.kanban-card-meta {
+    font-size: 11px;
+    color: #484f58;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.kanban-empty {
+    font-size: 12px;
+    color: #30363d;
+    text-align: center;
+    padding: 20px 8px;
+    border: 1px dashed #21262d;
+    border-radius: 6px;
 }
 
-/* ── Upload zone ──────────────────────────── */
+/* ══ Upload zone ════════════════════════════════════════════ */
 [data-testid="stFileUploader"] {
-    background: #1e293b !important;
-    border: 2px dashed #334155 !important;
-    border-radius: 12px !important;
-    padding: 32px !important;
-    transition: border-color 0.2s !important;
-}
-[data-testid="stFileUploader"]:hover {
-    border-color: #3b82f6 !important;
-}
-
-/* ── Buttons ──────────────────────────────── */
-.stButton > button {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
-    color: white !important;
-    border: none !important;
+    background: #161b22 !important;
+    border: 1px dashed #30363d !important;
     border-radius: 8px !important;
+    transition: border-color 0.15s !important;
+}
+[data-testid="stFileUploader"]:hover { border-color: #58a6ff !important; }
+[data-testid="stFileUploader"] label { color: #8d96a3 !important; }
+
+/* ══ Buttons ════════════════════════════════════════════════ */
+.stButton > button {
+    background: #21262d !important;
+    color: #c9d1d9 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
     font-weight: 600 !important;
-    font-size: 0.88rem !important;
-    padding: 8px 20px !important;
-    transition: all 0.2s !important;
+    padding: 5px 14px !important;
+    transition: background 0.15s, border-color 0.15s !important;
+    white-space: nowrap !important;
 }
 .stButton > button:hover {
-    background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
-    box-shadow: 0 4px 16px #3b82f640 !important;
-    transform: translateY(-1px) !important;
+    background: #30363d !important;
+    border-color: #8b949e !important;
+    color: #e6edf3 !important;
+}
+.stButton > button[kind="primary"],
+.stButton > button:first-child[data-primary="true"] {
+    background: #1f6feb !important;
+    border-color: #1f6feb !important;
+    color: white !important;
 }
 
-/* ── DataTable ────────────────────────────── */
-[data-testid="stDataFrame"] {
-    border-radius: 10px;
-    overflow: hidden;
-    border: 1px solid #334155;
+/* ══ Inputs ════════════════════════════════════════════════ */
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] > div > div {
+    background: #161b22 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 6px !important;
+    color: #c9d1d9 !important;
+    font-size: 13px !important;
+}
+[data-testid="stTextInput"] input:focus,
+[data-testid="stTextArea"] textarea:focus {
+    border-color: #1f6feb !important;
+    box-shadow: 0 0 0 3px #1f6feb25 !important;
 }
 
-/* ── Expander ─────────────────────────────── */
+/* ══ Expander ═══════════════════════════════════════════════ */
 [data-testid="stExpander"] {
-    background: #1e293b;
-    border: 1px solid #334155 !important;
-    border-radius: 10px !important;
+    background: #161b22 !important;
+    border: 1px solid #21262d !important;
+    border-radius: 8px !important;
 }
+[data-testid="stExpander"] summary { color: #c9d1d9 !important; }
 
-/* ── Divider ──────────────────────────────── */
-hr { border-color: #334155 !important; }
+/* ══ Progress bar ═══════════════════════════════════════════ */
+[data-testid="stProgress"] > div > div { border-radius: 2px !important; }
+[data-testid="stProgress"] { border-radius: 2px !important; }
 
-/* ── Progress bar ─────────────────────────── */
-[data-testid="stProgress"] > div > div {
-    border-radius: 9999px;
-}
-
-/* ── Selectbox / inputs ───────────────────── */
-[data-testid="stSelectbox"] > div > div,
-[data-testid="stTextInput"] input {
-    background: #1e293b !important;
-    border-color: #334155 !important;
-    color: #e2e8f0 !important;
-}
-
-/* ── Tab bar ──────────────────────────────── */
-[data-testid="stTabs"] [role="tab"] {
-    color: #64748b !important;
-    font-weight: 500;
-}
-[data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-    color: #60a5fa !important;
-    border-bottom-color: #3b82f6 !important;
-}
-
-/* ── Rubric setting card ──────────────────── */
-.rubric-category {
-    background: #1e293b;
-    border: 1px solid #334155;
-    border-radius: 10px;
-    padding: 16px 20px;
-    margin-bottom: 12px;
-}
-.rubric-category-name {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #e2e8f0;
-    margin-bottom: 4px;
-}
-.rubric-category-desc {
-    font-size: 0.8rem;
-    color: #64748b;
-}
-.rubric-weight {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #60a5fa;
-}
-
-/* ── Alert/info ───────────────────────────── */
+/* ══ Alerts ════════════════════════════════════════════════ */
 [data-testid="stAlert"] {
-    border-radius: 10px !important;
-    border: 1px solid #334155 !important;
+    background: #161b22 !important;
+    border: 1px solid #21262d !important;
+    border-radius: 8px !important;
 }
 
-/* ── Sidebar logo block ───────────────────── */
-.sidebar-logo {
-    padding: 16px 8px 24px 8px;
-    border-bottom: 1px solid #334155;
-    margin-bottom: 16px;
-    text-align: center;
+/* ══ Rubric criterion card ══════════════════════════════════ */
+.crit-card {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 8px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+    transition: border-color 0.15s;
 }
-.sidebar-logo-text {
-    font-size: 1.4rem;
-    font-weight: 800;
-    background: linear-gradient(90deg, #60a5fa, #34d399);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -0.02em;
+.crit-card:hover { border-color: #30363d; }
+.crit-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: #e6edf3;
+    margin-bottom: 2px;
 }
-.sidebar-logo-sub {
-    font-size: 0.7rem;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-top: 2px;
+.crit-desc { font-size: 12px; color: #8d96a3; }
+.crit-weight {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: #0c1e35;
+    color: #58a6ff;
+    border: 1px solid #1f6feb33;
 }
-
-/* ── Tag/chip ─────────────────────────────── */
-.info-chip {
-    display: inline-block;
-    background: #0f172a;
-    border: 1px solid #334155;
+.anchor-band {
+    background: #0d1117;
     border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 0.75rem;
-    color: #94a3b8;
+    padding: 8px 12px;
+    margin: 4px 0;
+    font-size: 12px;
+}
+.anchor-low  { border-left: 3px solid #f85149; }
+.anchor-mid  { border-left: 3px solid #d29922; }
+.anchor-high { border-left: 3px solid #3fb950; }
+.subfactor-tag {
+    display: inline-block;
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: #8d96a3;
     margin: 2px;
 }
+.redflag-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #f85149;
+    margin: 3px 0;
+}
+
+/* ══ Gating rule ════════════════════════════════════════════ */
+.gate-rule {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: #2b0f0f18;
+    border: 1px solid #6e181822;
+    border-radius: 6px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    color: #e6edf3;
+}
+
+/* ══ Sidebar custom HTML ════════════════════════════════════ */
+.sb-logo {
+    padding: 16px 14px 12px 14px;
+    border-bottom: 1px solid #21262d;
+    margin-bottom: 8px;
+}
+.sb-wordmark {
+    font-size: 15px;
+    font-weight: 800;
+    color: #e6edf3;
+    letter-spacing: -0.03em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.sb-tag {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #30363d;
+    margin-top: 2px;
+}
+.sb-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #30363d;
+    padding: 12px 16px 4px 16px;
+}
+.sb-divider { border-top: 1px solid #21262d; margin: 8px 0; }
+.sb-stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 16px;
+    font-size: 12px;
+}
+.sb-stat-label { color: #484f58; }
+.sb-stat-val   { color: #8d96a3; font-weight: 600; }
+
+/* ══ Empty state ════════════════════════════════════════════ */
+.empty-state {
+    text-align: center;
+    padding: 60px 24px;
+}
+.empty-icon  { font-size: 32px; margin-bottom: 12px; opacity: 0.3; }
+.empty-title { font-size: 15px; font-weight: 600; color: #484f58; margin-bottom: 6px; }
+.empty-sub   { font-size: 13px; color: #30363d; }
+
+/* ══ Overrides ══════════════════════════════════════════════ */
+hr { border-color: #21262d !important; margin: 12px 0 !important; }
+[data-testid="stMarkdownContainer"] p { font-size: 13px; color: #8d96a3; }
 </style>
 """, unsafe_allow_html=True)
 
 # ─── Load Rubric ─────────────────────────────────────────────────────────────
 @st.cache_data
 def load_rubric():
-    rubric_path = os.path.join(os.path.dirname(__file__), "rubric.json")
-    if os.path.exists(rubric_path):
-        with open(rubric_path) as f:
+    path = os.path.join(os.path.dirname(__file__), "rubric.json")
+    if os.path.exists(path):
+        with open(path) as f:
             return json.load(f)
     return {}
 
@@ -339,576 +526,551 @@ if "next_id" not in st.session_state:
     st.session_state.next_id = 1001
 
 STAGES = rubric.get("pipeline_stages", [
-    {"id": 1, "name": "Intake",       "color": "#6366f1"},
-    {"id": 2, "name": "Concept",      "color": "#3b82f6"},
-    {"id": 3, "name": "Validation",   "color": "#06b6d4"},
-    {"id": 4, "name": "Prototyping",  "color": "#10b981"},
-    {"id": 5, "name": "Market Test",  "color": "#f59e0b"},
-    {"id": 6, "name": "Scaling",      "color": "#f97316"},
-    {"id": 7, "name": "Monitoring",   "color": "#8b5cf6"},
+    {"id": 1, "name": "Intake",       "color": "#6e40c9"},
+    {"id": 2, "name": "Concept",      "color": "#1f6feb"},
+    {"id": 3, "name": "Validation",   "color": "#0ea5e9"},
+    {"id": 4, "name": "Prototyping",  "color": "#238636"},
+    {"id": 5, "name": "Market Test",  "color": "#9e6a03"},
+    {"id": 6, "name": "Scaling",      "color": "#d18000"},
+    {"id": 7, "name": "Monitoring",   "color": "#8b949e"},
 ])
 STAGE_NAMES = [s["name"] for s in STAGES]
+THRESHOLDS  = rubric.get("scoring_thresholds", {"green": 70, "yellow": 50})
 
-THRESHOLDS = rubric.get("scoring_thresholds", {"green": 70, "yellow": 50})
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+def score_badge_class(score):
+    if score >= THRESHOLDS["green"]:  return "badge-green"
+    if score >= THRESHOLDS["yellow"]: return "badge-yellow"
+    return "badge-red"
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-def score_color(score):
-    if score >= THRESHOLDS["green"]:
-        return "score-green"
-    if score >= THRESHOLDS["yellow"]:
-        return "score-yellow"
-    return "score-red"
+def score_hex(score):
+    if score >= THRESHOLDS["green"]:  return "#3fb950"
+    if score >= THRESHOLDS["yellow"]: return "#d29922"
+    return "#f85149"
 
-def score_color_hex(score):
-    if score >= THRESHOLDS["green"]:
-        return "#4ade80"
-    if score >= THRESHOLDS["yellow"]:
-        return "#fbbf24"
-    return "#f87171"
+def pill_class(status):
+    return {
+        "New":      "pill-new",
+        "Scored":   "pill-scored",
+        "In Review":"pill-review",
+        "Approved": "pill-approved",
+        "Rejected": "pill-rejected",
+    }.get(status, "pill-new")
 
-def status_class(status):
-    mapping = {
-        "New":      "status-new",
-        "Scored":   "status-scored",
-        "In Review":"status-review",
-        "Approved": "status-approved",
-        "Rejected": "status-rejected",
-    }
-    return mapping.get(status, "status-new")
-
-def make_gauge(score, title="", height=160):
-    color = score_color_hex(score)
+def make_gauge(score, title="", height=150):
+    color = score_hex(score)
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
         value=score,
-        number={"font": {"size": 28, "color": color, "family": "Inter"}, "suffix": ""},
-        title={"text": title, "font": {"size": 11, "color": "#94a3b8", "family": "Inter"}},
+        number={"font": {"size": 24, "color": color, "family": "Inter"}, "suffix": ""},
+        title={"text": title, "font": {"size": 10, "color": "#484f58", "family": "Inter"}},
         gauge={
-            "axis": {"range": [0, 100], "tickcolor": "#334155",
-                     "tickfont": {"color": "#475569", "size": 9}},
-            "bar": {"color": color, "thickness": 0.28},
-            "bgcolor": "#0f172a",
-            "bordercolor": "#334155",
+            "axis": {"range": [0, 100], "tickcolor": "#21262d",
+                     "tickfont": {"color": "#30363d", "size": 8}},
+            "bar": {"color": color, "thickness": 0.25},
+            "bgcolor": "#0d1117",
+            "bordercolor": "#21262d",
             "borderwidth": 1,
             "steps": [
-                {"range": [0, THRESHOLDS["yellow"]],   "color": "#2a0a0a"},
-                {"range": [THRESHOLDS["yellow"], THRESHOLDS["green"]], "color": "#2d1a03"},
-                {"range": [THRESHOLDS["green"], 100],  "color": "#052e16"},
+                {"range": [0, THRESHOLDS["yellow"]], "color": "#2b0f0f18"},
+                {"range": [THRESHOLDS["yellow"], THRESHOLDS["green"]], "color": "#2b1f0518"},
+                {"range": [THRESHOLDS["green"], 100], "color": "#0d2b1a18"},
             ],
-            "threshold": {
-                "line": {"color": color, "width": 2},
-                "thickness": 0.8,
-                "value": score,
-            },
         }
     ))
     fig.update_layout(
-        paper_bgcolor="#1e293b",
-        plot_bgcolor="#1e293b",
-        height=height,
-        margin=dict(l=12, r=12, t=28, b=4),
+        paper_bgcolor="#161b22", plot_bgcolor="#161b22",
+        height=height, margin=dict(l=10, r=10, t=24, b=4),
         font={"family": "Inter"},
     )
     return fig
 
 def ai_score_submission(submission, rubric_data):
-    """Simulate AI scoring using rubric weights (v2 flat criteria schema)."""
     category_scores = {}
     innovation = None
     feasibility = None
     for crit in rubric_data.get("criteria", []):
-        base = random.randint(45, 95)
-        noise = random.randint(-8, 8)
-        crit_score = max(10, min(100, base + noise))
-        weight_pct = crit.get("weight", 10)
-        key = crit["criterion"]
-        category_scores[key] = {
-            "name": crit["criterion"],
-            "score": crit_score,
-            "weight": weight_pct / 100,
-        }
+        base  = random.randint(45, 92)
+        noise = random.randint(-10, 10)
+        s     = max(10, min(100, base + noise))
+        w     = crit.get("weight", 10)
+        key   = crit["criterion"]
+        category_scores[key] = {"name": key, "score": s, "weight": w / 100}
         if "Innovation" in key:
-            innovation = crit_score
+            innovation = s
         if "Feasibility" in key or "Manufacturing" in key:
-            feasibility = crit_score
-    total_weight = sum(v["weight"] for v in category_scores.values())
-    if total_weight > 0:
-        overall = sum(v["score"] * v["weight"] for v in category_scores.values()) / total_weight * 100
-    else:
-        overall = 0.0
-    # Normalise to 0-100
-    overall = round(min(overall, 100), 1)
-    if innovation is None:
-        innovation = random.randint(50, 90)
-    if feasibility is None:
-        feasibility = random.randint(50, 90)
+            feasibility = s
+    total_w = sum(v["weight"] for v in category_scores.values())
+    overall = round(
+        sum(v["score"] * v["weight"] for v in category_scores.values()) / max(total_w, 0.01),
+        1
+    )
+    overall = min(overall, 100)
     return {
-        "overall": overall,
-        "innovation": innovation,
-        "feasibility": feasibility,
+        "overall":    overall,
+        "innovation": innovation or random.randint(50, 88),
+        "feasibility":feasibility or random.randint(50, 88),
         "categories": category_scores,
     }
 
 def add_demo_submissions():
-    demo = [
-        {"name": "Self-Healing Polymer Coating",  "file_type": "PDF",   "stage": "Validation"},
-        {"name": "Modular Exoskeleton Frame",      "file_type": "Image", "stage": "Prototyping"},
-        {"name": "Biodegradable Packaging System", "file_type": "PDF",   "stage": "Concept"},
-        {"name": "Micro-Motor Precision Drive",    "file_type": "Video", "stage": "Market Test"},
-        {"name": "Smart Thermal Regulator",        "file_type": "PDF",   "stage": "Intake"},
+    demos = [
+        ("Self-Healing Polymer Coating",     "PDF",   "Validation",  "Scored"),
+        ("Modular Exoskeleton Frame",         "Image", "Prototyping", "In Review"),
+        ("Biodegradable Packaging System",    "PDF",   "Concept",     "Scored"),
+        ("Micro-Motor Precision Drive",       "Video", "Market Test", "Approved"),
+        ("Smart Thermal Regulator",           "PDF",   "Intake",      "New"),
+        ("Carbon-Fibre Compression Sleeve",   "PDF",   "Scaling",     "Approved"),
+        ("Mycelium Foam Insulation Panel",    "PDF",   "Validation",  "In Review"),
     ]
-    for d in demo:
+    for name, ftype, stage, status in demos:
         sid = f"FOS-{st.session_state.next_id}"
         st.session_state.next_id += 1
-        scores = ai_score_submission({}, rubric)
-        status = random.choice(["Scored", "In Review", "Approved", "Scored"])
+        scores = ai_score_submission({}, rubric) if status != "New" else {"overall": 0.0, "innovation": 0.0, "feasibility": 0.0, "categories": {}}
+        days_ago = random.randint(1, 45)
         st.session_state.submissions.append({
-            "id":          sid,
-            "name":        d["name"],
-            "file_type":   d["file_type"],
-            "status":      status,
-            "stage":       d["stage"],
-            "overall":     scores["overall"],
-            "innovation":  scores["innovation"],
-            "feasibility": scores["feasibility"],
-            "categories":  scores["categories"],
-            "submitted_at": (datetime.now() - timedelta(days=random.randint(1, 30))).strftime("%Y-%m-%d"),
-            "notes":       "",
+            "id":           sid,
+            "name":         name,
+            "file_type":    ftype,
+            "status":       status,
+            "stage":        stage,
+            "overall":      scores["overall"],
+            "innovation":   scores["innovation"],
+            "feasibility":  scores["feasibility"],
+            "categories":   scores["categories"],
+            "submitted_at": (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d"),
+            "notes":        "",
         })
 
-# ─── Sidebar ─────────────────────────────────────────────────────────────────
+# ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div class="sidebar-logo">
-        <div class="sidebar-logo-text">⚙️ ForgeOS</div>
-        <div class="sidebar-logo-sub">AI Innovation OS</div>
+    <div class="sb-logo">
+        <div class="sb-wordmark">⚙ ForgeOS</div>
+        <div class="sb-tag">Physical Goods Innovation</div>
     </div>
     """, unsafe_allow_html=True)
 
-    page = st.radio(
-        "Navigation",
-        ["🏠  Dashboard", "📂  Submissions", "🔀  Pipeline", "⚙️  Rubric Settings"],
-        label_visibility="collapsed",
-    )
+    st.markdown('<div class="sb-section-label">Main</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
+    page = st.radio("nav", [
+        "Dashboard",
+        "Submissions",
+        "Pipeline",
+        "Rubric Settings",
+    ], label_visibility="collapsed")
 
-    total = len(st.session_state.submissions)
-    scored = sum(1 for s in st.session_state.submissions if s["status"] in ("Scored", "In Review", "Approved"))
-    approved = sum(1 for s in st.session_state.submissions if s["status"] == "Approved")
+    subs = st.session_state.submissions
+    total    = len(subs)
+    scored   = sum(1 for s in subs if s["status"] in ("Scored","In Review","Approved"))
+    approved = sum(1 for s in subs if s["status"] == "Approved")
+    high_pot = sum(1 for s in subs if s["overall"] >= THRESHOLDS["green"])
+    avg_score= round(sum(s["overall"] for s in subs) / max(total, 1), 1)
 
+    st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="sb-section-label">Overview</div>', unsafe_allow_html=True)
     st.markdown(f"""
-    <div style="padding: 12px 8px;">
-        <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:0.08em; color:#475569; margin-bottom:12px;">
-            Quick Stats
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-            <span style="color:#94a3b8; font-size:0.82rem;">Total Submissions</span>
-            <span style="color:#e2e8f0; font-weight:600;">{total}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-            <span style="color:#94a3b8; font-size:0.82rem;">Scored</span>
-            <span style="color:#4ade80; font-weight:600;">{scored}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between;">
-            <span style="color:#94a3b8; font-size:0.82rem;">Approved</span>
-            <span style="color:#c084fc; font-weight:600;">{approved}</span>
-        </div>
-    </div>
+    <div class="sb-stat-row"><span class="sb-stat-label">Submissions</span><span class="sb-stat-val">{total}</span></div>
+    <div class="sb-stat-row"><span class="sb-stat-label">Scored</span><span class="sb-stat-val">{scored}</span></div>
+    <div class="sb-stat-row"><span class="sb-stat-label">Approved</span><span class="sb-stat-val">{approved}</span></div>
+    <div class="sb-stat-row"><span class="sb-stat-label">High Potential</span><span class="sb-stat-val" style="color:#3fb950">{high_pot}</span></div>
+    <div class="sb-stat-row"><span class="sb-stat-label">Avg Score</span><span class="sb-stat-val" style="color:{score_hex(avg_score) if total else '#484f58'}">{avg_score if total else '—'}</span></div>
     """, unsafe_allow_html=True)
 
-    st.markdown("---")
+    st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
 
     if st.button("Load Demo Data", use_container_width=True):
         if not st.session_state.submissions:
             add_demo_submissions()
-            st.success("Demo submissions loaded!")
             st.rerun()
         else:
-            st.warning("Submissions already exist.")
+            st.warning("Submissions already loaded.")
 
     st.markdown("""
-    <div style="padding: 16px 8px 0 8px; font-size: 0.7rem; color: #334155; text-align: center;">
-        ForgeOS v1.0 · Physical Goods Innovation<br>
-        Powered by AI Agentic Scoring
+    <div style="padding: 20px 16px 0 16px;">
+        <div style="font-size:10px;color:#30363d;">ForgeOS v2.0 · AI Scoring Engine</div>
     </div>
     """, unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PAGE: DASHBOARD
-# ═══════════════════════════════════════════════════════════════════════════════
-if page == "🏠  Dashboard":
+# ══════════════════════════════════════════════════════════════════════════════
+if page == "Dashboard":
 
     st.markdown("""
-    <div class="forge-header">
-        <h1>ForgeOS — Innovation OS</h1>
-        <p>AI-powered innovation pipeline for physical goods companies. Upload ideas, score with your rubric, and track them through the innovation lifecycle.</p>
+    <div class="forge-topbar">
+      <div class="forge-topbar-left">
+        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Dashboard</span></div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # ── Metrics row ───────────────────────────────────────────────────────────
-    subs = st.session_state.submissions
-    total = len(subs)
-    avg_score = round(sum(s["overall"] for s in subs) / max(total, 1), 1)
-    high_potential = sum(1 for s in subs if s["overall"] >= THRESHOLDS["green"])
-    approved = sum(1 for s in subs if s["status"] == "Approved")
+    st.markdown('<div class="page-content">', unsafe_allow_html=True)
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Total Submissions</div>
-            <div class="metric-value">{total}</div>
-            <div class="metric-sub">Innovation ideas logged</div>
-            <span class="metric-badge badge-blue">All Time</span>
-        </div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Avg Overall Score</div>
-            <div class="metric-value" style="color:{score_color_hex(avg_score)}">{avg_score}</div>
-            <div class="metric-sub">Out of 100</div>
-            <span class="metric-badge badge-green">Rubric-based</span>
-        </div>""", unsafe_allow_html=True)
-    with c3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">High Potential</div>
-            <div class="metric-value" style="color:#4ade80">{high_potential}</div>
-            <div class="metric-sub">Score ≥ {THRESHOLDS['green']}</div>
-            <span class="metric-badge badge-green">Green Zone</span>
-        </div>""", unsafe_allow_html=True)
-    with c4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <div class="metric-label">Approved</div>
-            <div class="metric-value" style="color:#c084fc">{approved}</div>
-            <div class="metric-sub">Proceeding to production</div>
-            <span class="metric-badge badge-purple">Pipeline</span>
-        </div>""", unsafe_allow_html=True)
+    # ── Apollo-style stat strip ───────────────────────────────────────────────
+    avg_innov = round(sum(s["innovation"] for s in subs if s["innovation"] > 0) / max(sum(1 for s in subs if s["innovation"] > 0), 1), 1)
+    avg_feas  = round(sum(s["feasibility"] for s in subs if s["feasibility"] > 0) / max(sum(1 for s in subs if s["feasibility"] > 0), 1), 1)
 
-    st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="stat-strip">
+      <div class="stat-item">
+        <div class="stat-label">Total Submissions</div>
+        <div class="stat-value">{total}</div>
+        <div class="stat-sub">All time</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Avg Overall Score</div>
+        <div class="stat-value" style="color:{score_hex(avg_score) if total else '#484f58'}">{avg_score if total else '—'}</div>
+        <div class="stat-sub">Out of 100</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">High Potential</div>
+        <div class="stat-value" style="color:#3fb950">{high_pot}</div>
+        <div class="stat-sub">Score ≥ {THRESHOLDS['green']}</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Approved</div>
+        <div class="stat-value" style="color:#a371f7">{approved}</div>
+        <div class="stat-sub">Proceeding to production</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Avg Innovation</div>
+        <div class="stat-value" style="color:{score_hex(avg_innov) if avg_innov else '#484f58'}">{avg_innov if avg_innov else '—'}</div>
+        <div class="stat-sub">Innovation criterion</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-label">Avg Feasibility</div>
+        <div class="stat-value" style="color:{score_hex(avg_feas) if avg_feas else '#484f58'}">{avg_feas if avg_feas else '—'}</div>
+        <div class="stat-sub">Manufacturing criterion</div>
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
 
-    # ── Charts ────────────────────────────────────────────────────────────────
     if subs:
-        col_chart1, col_chart2 = st.columns([3, 2])
+        # ── Charts row ────────────────────────────────────────────────────────
+        col_c1, col_c2 = st.columns([3, 2], gap="medium")
 
-        with col_chart1:
-            st.markdown('<div class="section-title">Score Distribution</div>', unsafe_allow_html=True)
+        with col_c1:
+            st.markdown('<div class="section-hd">Score Distribution</div>', unsafe_allow_html=True)
             df = pd.DataFrame(subs)
-            fig_hist = px.histogram(
-                df, x="overall", nbins=10,
-                color_discrete_sequence=["#3b82f6"],
-                labels={"overall": "Overall Score", "count": "Submissions"},
-            )
-            fig_hist.update_layout(
-                paper_bgcolor="#1e293b", plot_bgcolor="#1e293b",
-                font={"color": "#94a3b8", "family": "Inter"},
-                xaxis=dict(gridcolor="#334155", color="#64748b"),
-                yaxis=dict(gridcolor="#334155", color="#64748b"),
-                height=240, margin=dict(l=0, r=0, t=12, b=0),
-                bargap=0.1,
-            )
-            st.plotly_chart(fig_hist, use_container_width=True)
+            scored_df = df[df["overall"] > 0]
+            if not scored_df.empty:
+                fig_hist = px.histogram(
+                    scored_df, x="overall", nbins=12,
+                    color_discrete_sequence=["#1f6feb"],
+                )
+                fig_hist.update_traces(marker_line_width=0)
+                fig_hist.update_layout(
+                    paper_bgcolor="#161b22", plot_bgcolor="#161b22",
+                    font={"color": "#8d96a3", "family": "Inter", "size": 11},
+                    xaxis=dict(gridcolor="#21262d", color="#484f58", title="Overall Score"),
+                    yaxis=dict(gridcolor="#21262d", color="#484f58", title="Count"),
+                    height=220, margin=dict(l=0, r=0, t=8, b=0),
+                    bargap=0.08,
+                )
+                st.plotly_chart(fig_hist, use_container_width=True)
+            else:
+                st.markdown('<div style="height:220px;display:flex;align-items:center;justify-content:center;color:#30363d;font-size:13px;">No scored submissions yet</div>', unsafe_allow_html=True)
 
-        with col_chart2:
-            st.markdown('<div class="section-title">Status Breakdown</div>', unsafe_allow_html=True)
-            statuses = pd.DataFrame(subs)["status"].value_counts().reset_index()
-            statuses.columns = ["Status", "Count"]
+        with col_c2:
+            st.markdown('<div class="section-hd">Status Breakdown</div>', unsafe_allow_html=True)
+            status_counts = pd.DataFrame(subs)["status"].value_counts().reset_index()
+            status_counts.columns = ["Status", "Count"]
             fig_pie = px.pie(
-                statuses, names="Status", values="Count",
-                color_discrete_sequence=["#3b82f6","#4ade80","#fbbf24","#c084fc","#f87171"],
-                hole=0.55,
+                status_counts, names="Status", values="Count",
+                color_discrete_sequence=["#1f6feb","#3fb950","#d29922","#a371f7","#f85149"],
+                hole=0.6,
             )
             fig_pie.update_layout(
-                paper_bgcolor="#1e293b", plot_bgcolor="#1e293b",
-                font={"color": "#94a3b8", "family": "Inter"},
-                height=240, margin=dict(l=0, r=0, t=12, b=0),
-                legend=dict(font=dict(color="#94a3b8"), bgcolor="#1e293b"),
+                paper_bgcolor="#161b22", plot_bgcolor="#161b22",
+                font={"color": "#8d96a3", "family": "Inter", "size": 11},
+                height=220, margin=dict(l=0, r=0, t=8, b=0),
+                legend=dict(font=dict(color="#8d96a3", size=11), bgcolor="#161b22"),
                 showlegend=True,
             )
-            fig_pie.update_traces(textfont_color="#e2e8f0")
+            fig_pie.update_traces(textfont_color="#e6edf3", textfont_size=11)
             st.plotly_chart(fig_pie, use_container_width=True)
 
-        # ── Recent submissions ─────────────────────────────────────────────
-        st.markdown('<div class="section-title">Recent Submissions</div>', unsafe_allow_html=True)
-        recent = sorted(subs, key=lambda x: x["submitted_at"], reverse=True)[:5]
+        # ── Recent submissions table ───────────────────────────────────────
+        st.markdown('<div class="section-hd">Recent Submissions</div>', unsafe_allow_html=True)
+        recent = sorted(subs, key=lambda x: x["submitted_at"], reverse=True)[:8]
+
+        rows_html = ""
         for sub in recent:
-            col_id, col_name, col_score, col_status, col_stage = st.columns([1.2, 3, 1.5, 1.5, 2])
-            with col_id:
-                st.markdown(f'<span class="info-chip">{sub["id"]}</span>', unsafe_allow_html=True)
-            with col_name:
-                st.markdown(f'<span style="color:#e2e8f0; font-size:0.88rem; font-weight:500;">{sub["name"]}</span>', unsafe_allow_html=True)
-            with col_score:
-                css = score_color(sub["overall"])
-                st.markdown(f'<span class="{css}">{sub["overall"]}</span>', unsafe_allow_html=True)
-            with col_status:
-                sc = status_class(sub["status"])
-                st.markdown(f'<span class="status-pill {sc}">{sub["status"]}</span>', unsafe_allow_html=True)
-            with col_stage:
-                st.markdown(f'<span style="color:#64748b; font-size:0.8rem;">{sub["stage"]}</span>', unsafe_allow_html=True)
+            badge = ""
+            if sub["overall"] > 0:
+                bc = score_badge_class(sub["overall"])
+                badge = f'<span class="badge-score {bc}">{sub["overall"]}</span>'
+            else:
+                badge = '<span style="color:#30363d;font-size:12px;">—</span>'
+            pc = pill_class(sub["status"])
+            stage_color = next((s["color"] for s in STAGES if s["name"] == sub["stage"]), "#484f58")
+            rows_html += f"""
+            <tr class="forge-tr">
+              <td class="forge-td"><span class="forge-id">{sub['id']}</span></td>
+              <td class="forge-td forge-td-primary">{sub['name']}</td>
+              <td class="forge-td">{badge}</td>
+              <td class="forge-td"><span class="pill {pc}">{sub['status']}</span></td>
+              <td class="forge-td"><span style="font-size:11px;color:{stage_color};font-weight:600;">{sub['stage']}</span></td>
+              <td class="forge-td">{sub['submitted_at']}</td>
+            </tr>"""
+
+        st.markdown(f"""
+        <div class="forge-card" style="padding:0; overflow:hidden;">
+        <table class="forge-table">
+          <thead>
+            <tr>
+              <th class="forge-th">ID</th>
+              <th class="forge-th">Idea Name</th>
+              <th class="forge-th">Score</th>
+              <th class="forge-th">Status</th>
+              <th class="forge-th">Stage</th>
+              <th class="forge-th">Submitted</th>
+            </tr>
+          </thead>
+          <tbody>{rows_html}</tbody>
+        </table>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # ── Pipeline snapshot ──────────────────────────────────────────────
+        st.markdown('<div class="section-hd">Pipeline Snapshot</div>', unsafe_allow_html=True)
+        stage_counts_map = {s["name"]: 0 for s in STAGES}
+        for sub in subs:
+            if sub["stage"] in stage_counts_map:
+                stage_counts_map[sub["stage"]] += 1
+
+        cols = st.columns(len(STAGES))
+        for stage, col in zip(STAGES, cols):
+            cnt = stage_counts_map.get(stage["name"], 0)
+            with col:
+                st.markdown(f"""
+                <div class="forge-card" style="text-align:center;padding:14px 10px;border-top:2px solid {stage['color']};">
+                    <div style="font-size:18px;font-weight:700;color:{stage['color']};margin-bottom:4px;">{cnt}</div>
+                    <div style="font-size:11px;font-weight:600;color:#8d96a3;">{stage['name']}</div>
+                </div>""", unsafe_allow_html=True)
 
     else:
         st.markdown("""
-        <div style="text-align:center; padding: 60px 0; color: #475569;">
-            <div style="font-size:3rem; margin-bottom:16px;">⚙️</div>
-            <div style="font-size:1.1rem; font-weight:600; color:#64748b; margin-bottom:8px;">No submissions yet</div>
-            <div style="font-size:0.88rem;">Head to <strong>Submissions</strong> to upload your first innovation idea,
-            or click <strong>Load Demo Data</strong> in the sidebar.</div>
+        <div class="empty-state">
+            <div class="empty-icon">⚙️</div>
+            <div class="empty-title">No submissions yet</div>
+            <div class="empty-sub">Go to Submissions to upload your first idea,<br>or click Load Demo Data in the sidebar.</div>
         </div>""", unsafe_allow_html=True)
 
-    # ── Pipeline snapshot ─────────────────────────────────────────────────────
-    st.markdown('<div class="section-title">Innovation Pipeline Snapshot</div>', unsafe_allow_html=True)
-    stage_counts = {s["name"]: 0 for s in STAGES}
-    for sub in subs:
-        if sub["stage"] in stage_counts:
-            stage_counts[sub["stage"]] += 1
-
-    cols = st.columns(len(STAGES))
-    for i, (stage, col) in enumerate(zip(STAGES, cols)):
-        count = stage_counts.get(stage["name"], 0)
-        with col:
-            st.markdown(f"""
-            <div class="stage-card">
-                <div class="stage-number" style="background:{stage['color']}22; color:{stage['color']};">
-                    {i+1}
-                </div>
-                <div class="stage-count" style="color:{stage['color']};">{count}</div>
-                <div class="stage-name">{stage['name']}</div>
-            </div>""", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
 # PAGE: SUBMISSIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-elif page == "📂  Submissions":
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Submissions":
 
     st.markdown("""
-    <div class="forge-header">
-        <h1>Submissions</h1>
-        <p>Upload innovation ideas, score them with AI, and manage their lifecycle through your pipeline.</p>
+    <div class="forge-topbar">
+      <div class="forge-topbar-left">
+        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Submissions</span></div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown('<div class="page-content">', unsafe_allow_html=True)
+
     # ── Upload panel ──────────────────────────────────────────────────────────
-    with st.expander("➕  Upload New Submission", expanded=len(st.session_state.submissions) == 0):
-        col_form1, col_form2 = st.columns([2, 1])
-        with col_form1:
-            idea_name = st.text_input(
-                "Idea / Concept Name",
-                placeholder="e.g., Self-Healing Polymer Coating",
-            )
-            uploaded_files = st.file_uploader(
-                "Upload supporting files",
-                type=["pdf", "png", "jpg", "jpeg", "mp4", "mov", "txt", "docx"],
+    with st.expander("➕  New Submission", expanded=not st.session_state.submissions):
+        col_f1, col_f2 = st.columns([2, 1])
+        with col_f1:
+            idea_name = st.text_input("Idea Name", placeholder="e.g. Self-Healing Polymer Coating")
+            uploaded  = st.file_uploader(
+                "Supporting files",
+                type=["pdf","png","jpg","jpeg","mp4","mov","txt","docx"],
                 accept_multiple_files=True,
-                help="Accepted: PDF, images (PNG/JPG), videos (MP4/MOV), or text documents",
+                help="PDF, images, videos, or documents",
             )
-        with col_form2:
-            initial_stage = st.selectbox("Initial Stage", STAGE_NAMES, index=0)
-            notes = st.text_area("Notes (optional)", height=100, placeholder="Brief description or context…")
+        with col_f2:
+            init_stage = st.selectbox("Initial Stage", STAGE_NAMES)
+            notes_txt  = st.text_area("Notes", height=96, placeholder="Brief context…")
 
-        btn_col1, btn_col2 = st.columns([1, 4])
-        with btn_col1:
-            submit_btn = st.button("Submit Idea", use_container_width=True)
-
-        if submit_btn:
+        if st.button("Submit Idea"):
             if not idea_name.strip():
-                st.error("Please enter an idea name.")
+                st.error("Idea name is required.")
             else:
-                file_types = list({
-                    f.type.split("/")[-1].upper()
-                    for f in (uploaded_files or [])
-                }) or ["Text"]
+                ftypes = list({f.type.split("/")[-1].upper() for f in (uploaded or [])}) or ["—"]
                 sid = f"FOS-{st.session_state.next_id}"
                 st.session_state.next_id += 1
                 st.session_state.submissions.append({
-                    "id":          sid,
-                    "name":        idea_name.strip(),
-                    "file_type":   ", ".join(file_types),
-                    "status":      "New",
-                    "stage":       initial_stage,
-                    "overall":     0.0,
-                    "innovation":  0.0,
-                    "feasibility": 0.0,
-                    "categories":  {},
+                    "id":           sid,
+                    "name":         idea_name.strip(),
+                    "file_type":    ", ".join(ftypes),
+                    "status":       "New",
+                    "stage":        init_stage,
+                    "overall":      0.0,
+                    "innovation":   0.0,
+                    "feasibility":  0.0,
+                    "categories":   {},
                     "submitted_at": datetime.now().strftime("%Y-%m-%d"),
-                    "notes":       notes,
+                    "notes":        notes_txt,
                 })
-                st.success(f"Submission **{sid}** added successfully!")
+                st.success(f"Submission {sid} added.")
                 st.rerun()
 
-    # ── Filter bar ────────────────────────────────────────────────────────────
+    # ── Toolbar ───────────────────────────────────────────────────────────────
     if st.session_state.submissions:
-        st.markdown('<div class="section-title">All Submissions</div>', unsafe_allow_html=True)
+        tb1, tb2, tb3, tb4, tb5 = st.columns([3, 1.5, 1.5, 1.2, 1.8])
+        with tb1:
+            search_q = st.text_input("search", placeholder="Search by name or ID…", label_visibility="collapsed")
+        with tb2:
+            f_status = st.selectbox("st", ["All Statuses","New","Scored","In Review","Approved","Rejected"], label_visibility="collapsed")
+        with tb3:
+            f_stage  = st.selectbox("sg", ["All Stages"] + STAGE_NAMES, label_visibility="collapsed")
+        with tb4:
+            f_sort   = st.selectbox("sort", ["Newest","Score ↓","Score ↑","Name"], label_visibility="collapsed")
+        with tb5:
+            run_bulk = st.button("🤖  Process All with AI", use_container_width=True)
 
-        f1, f2, f3, f4 = st.columns([2, 1.5, 1.5, 1])
-        with f1:
-            search_q = st.text_input("Search", placeholder="Filter by name or ID…", label_visibility="collapsed")
-        with f2:
-            filter_status = st.selectbox("Status", ["All Statuses", "New", "Scored", "In Review", "Approved", "Rejected"], label_visibility="collapsed")
-        with f3:
-            filter_stage = st.selectbox("Stage", ["All Stages"] + STAGE_NAMES, label_visibility="collapsed")
-        with f4:
-            sort_by = st.selectbox("Sort", ["Submitted", "Score ↓", "Score ↑", "Name"], label_visibility="collapsed")
+        if run_bulk:
+            unscored = [s for s in st.session_state.submissions if s["status"] == "New"]
+            if unscored:
+                prog = st.progress(0)
+                msg  = st.empty()
+                for i, sub in enumerate(unscored):
+                    msg.markdown(f'<span style="color:#484f58;font-size:12px;">Scoring {sub["name"]}…</span>', unsafe_allow_html=True)
+                    time.sleep(0.5)
+                    sc = ai_score_submission(sub, rubric)
+                    idx = next(j for j, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
+                    st.session_state.submissions[idx].update({
+                        "overall": sc["overall"], "innovation": sc["innovation"],
+                        "feasibility": sc["feasibility"], "categories": sc["categories"], "status": "Scored",
+                    })
+                    prog.progress((i + 1) / len(unscored))
+                msg.empty()
+                st.success(f"Scored {len(unscored)} submission(s).")
+                st.rerun()
+            else:
+                st.info("No unscored submissions.")
 
-        subs = st.session_state.submissions
+        # ── Filter ────────────────────────────────────────────────────────────
+        visible = list(st.session_state.submissions)
         if search_q:
-            subs = [s for s in subs if search_q.lower() in s["name"].lower() or search_q.lower() in s["id"].lower()]
-        if filter_status != "All Statuses":
-            subs = [s for s in subs if s["status"] == filter_status]
-        if filter_stage != "All Stages":
-            subs = [s for s in subs if s["stage"] == filter_stage]
-        if sort_by == "Score ↓":
-            subs = sorted(subs, key=lambda x: x["overall"], reverse=True)
-        elif sort_by == "Score ↑":
-            subs = sorted(subs, key=lambda x: x["overall"])
-        elif sort_by == "Name":
-            subs = sorted(subs, key=lambda x: x["name"])
+            visible = [s for s in visible if search_q.lower() in s["name"].lower() or search_q.lower() in s["id"].lower()]
+        if f_status != "All Statuses":
+            visible = [s for s in visible if s["status"] == f_status]
+        if f_stage != "All Stages":
+            visible = [s for s in visible if s["stage"] == f_stage]
+        if f_sort == "Score ↓":
+            visible.sort(key=lambda x: x["overall"], reverse=True)
+        elif f_sort == "Score ↑":
+            visible.sort(key=lambda x: x["overall"])
+        elif f_sort == "Name":
+            visible.sort(key=lambda x: x["name"])
         else:
-            subs = sorted(subs, key=lambda x: x["submitted_at"], reverse=True)
+            visible.sort(key=lambda x: x["submitted_at"], reverse=True)
 
-        # ── Header row ────────────────────────────────────────────────────────
-        h = st.columns([1.2, 3, 1.2, 1.2, 1.2, 1.5, 1.8, 2.5])
-        headers = ["ID", "Idea Name", "Overall", "Innovation", "Feasibility", "Status", "Stage", "Actions"]
-        for col, label in zip(h, headers):
-            col.markdown(f'<span style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#475569;font-weight:600;">{label}</span>', unsafe_allow_html=True)
+        # ── Table ─────────────────────────────────────────────────────────────
+        st.markdown('<div class="section-hd" style="margin-top:16px;">All Submissions</div>', unsafe_allow_html=True)
 
-        st.markdown("<hr style='margin:6px 0 4px 0;'>", unsafe_allow_html=True)
+        hd = st.columns([1.2, 3.5, 1.1, 1.1, 1.1, 1.5, 1.5, 2.8])
+        for col, label in zip(hd, ["ID","Idea Name","Overall","Innovation","Feasibility","Status","Stage","Actions"]):
+            col.markdown(f'<span style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#484f58;font-weight:600;">{label}</span>', unsafe_allow_html=True)
 
-        for sub in subs:
-            row = st.columns([1.2, 3, 1.2, 1.2, 1.2, 1.5, 1.8, 2.5])
+        st.markdown("<hr style='margin:6px 0 0 0'>", unsafe_allow_html=True)
+
+        for sub in visible:
+            row = st.columns([1.2, 3.5, 1.1, 1.1, 1.1, 1.5, 1.5, 2.8])
+
             with row[0]:
-                st.markdown(f'<span class="info-chip">{sub["id"]}</span>', unsafe_allow_html=True)
+                st.markdown(f'<span class="forge-id">{sub["id"]}</span>', unsafe_allow_html=True)
+
             with row[1]:
-                st.markdown(f'<span style="color:#e2e8f0;font-size:0.88rem;font-weight:500;">{sub["name"]}</span><br><span style="color:#475569;font-size:0.72rem;">{sub["file_type"]} · {sub["submitted_at"]}</span>', unsafe_allow_html=True)
-            with row[2]:
-                if sub["overall"] > 0:
-                    css = score_color(sub["overall"])
-                    st.markdown(f'<span class="{css}" style="font-size:0.95rem;">{sub["overall"]}</span>', unsafe_allow_html=True)
-                    st.progress(int(sub["overall"]) / 100)
+                st.markdown(f'<span style="font-size:13px;color:#e6edf3;font-weight:500;">{sub["name"]}</span>'
+                            f'<br><span style="font-size:11px;color:#484f58;">{sub["file_type"]} · {sub["submitted_at"]}</span>',
+                            unsafe_allow_html=True)
+
+            for col, field in zip(row[2:5], ["overall","innovation","feasibility"]):
+                val = sub[field]
+                if val > 0:
+                    bc = score_badge_class(val)
+                    col.markdown(f'<span class="badge-score {bc}">{val}</span>', unsafe_allow_html=True)
                 else:
-                    st.markdown('<span style="color:#334155;">—</span>', unsafe_allow_html=True)
-            with row[3]:
-                if sub["innovation"] > 0:
-                    css = score_color(sub["innovation"])
-                    st.markdown(f'<span class="{css}">{sub["innovation"]}</span>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<span style="color:#334155;">—</span>', unsafe_allow_html=True)
-            with row[4]:
-                if sub["feasibility"] > 0:
-                    css = score_color(sub["feasibility"])
-                    st.markdown(f'<span class="{css}">{sub["feasibility"]}</span>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<span style="color:#334155;">—</span>', unsafe_allow_html=True)
+                    col.markdown('<span style="color:#30363d;font-size:13px;">—</span>', unsafe_allow_html=True)
+
             with row[5]:
-                sc = status_class(sub["status"])
-                st.markdown(f'<span class="status-pill {sc}">{sub["status"]}</span>', unsafe_allow_html=True)
+                pc = pill_class(sub["status"])
+                st.markdown(f'<span class="pill {pc}">{sub["status"]}</span>', unsafe_allow_html=True)
+
             with row[6]:
-                st.markdown(f'<span style="color:#64748b;font-size:0.82rem;">{sub["stage"]}</span>', unsafe_allow_html=True)
+                sc = next((s["color"] for s in STAGES if s["name"] == sub["stage"]), "#484f58")
+                st.markdown(f'<span style="font-size:11px;font-weight:600;color:{sc};">● {sub["stage"]}</span>', unsafe_allow_html=True)
+
             with row[7]:
-                act1, act2, act3 = st.columns(3)
-                with act1:
-                    if st.button("AI Score", key=f"score_{sub['id']}"):
-                        with st.spinner("Scoring…"):
-                            time.sleep(1.2)
-                            scores = ai_score_submission(sub, rubric)
+                a1, a2, a3 = st.columns(3)
+                with a1:
+                    if st.button("Score", key=f"sc_{sub['id']}"):
+                        with st.spinner(""):
+                            time.sleep(0.8)
+                            sc2 = ai_score_submission(sub, rubric)
                             idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                             st.session_state.submissions[idx].update({
-                                "overall":     scores["overall"],
-                                "innovation":  scores["innovation"],
-                                "feasibility": scores["feasibility"],
-                                "categories":  scores["categories"],
-                                "status":      "Scored",
+                                "overall": sc2["overall"], "innovation": sc2["innovation"],
+                                "feasibility": sc2["feasibility"], "categories": sc2["categories"], "status": "Scored",
                             })
                             st.rerun()
-                with act2:
+                with a2:
                     if st.button("Advance", key=f"adv_{sub['id']}"):
                         idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                         cur = STAGE_NAMES.index(st.session_state.submissions[idx]["stage"])
                         if cur < len(STAGE_NAMES) - 1:
                             st.session_state.submissions[idx]["stage"] = STAGE_NAMES[cur + 1]
                             st.rerun()
-                with act3:
+                with a3:
                     if st.button("Delete", key=f"del_{sub['id']}"):
-                        st.session_state.submissions = [
-                            s for s in st.session_state.submissions if s["id"] != sub["id"]
-                        ]
+                        st.session_state.submissions = [s for s in st.session_state.submissions if s["id"] != sub["id"]]
                         st.rerun()
 
-            # ── Score detail expander ──────────────────────────────────────
+            # Score detail
             if sub["categories"]:
-                with st.expander(f"View Score Detail — {sub['name']}"):
-                    gauge_cols = st.columns(3)
-                    key_cats = list(sub["categories"].items())
-                    for i, (cat_id, cat_data) in enumerate(key_cats[:3]):
-                        with gauge_cols[i % 3]:
-                            st.plotly_chart(
-                                make_gauge(cat_data["score"], cat_data["name"]),
-                                use_container_width=True, key=f"gauge_{sub['id']}_{cat_id}"
-                            )
-                    for cat_id, cat_data in key_cats:
-                        pct = cat_data["score"] / 100
-                        bar_color = score_color_hex(cat_data["score"])
+                with st.expander(f"Score Detail — {sub['name']}", expanded=False):
+                    gauge_cols = st.columns(min(len(sub["categories"]), 4))
+                    for i, (cid, cd) in enumerate(list(sub["categories"].items())[:4]):
+                        with gauge_cols[i]:
+                            st.plotly_chart(make_gauge(cd["score"], cd["name"]), use_container_width=True, key=f"g_{sub['id']}_{i}")
+                    for cid, cd in sub["categories"].items():
+                        c = score_hex(cd["score"])
                         st.markdown(f"""
-                        <div style="margin-bottom:10px;">
-                            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                                <span style="font-size:0.82rem;color:#94a3b8;">{cat_data['name']}</span>
-                                <span style="font-size:0.82rem;font-weight:600;color:{bar_color};">{cat_data['score']}</span>
-                            </div>
+                        <div style="display:flex;align-items:center;gap:10px;margin:4px 0;">
+                          <span style="width:160px;font-size:11px;color:#8d96a3;flex-shrink:0;">{cd['name']}</span>
+                          <span style="font-size:12px;font-weight:700;color:{c};width:36px;">{cd['score']}</span>
                         </div>""", unsafe_allow_html=True)
-                        st.progress(int(cat_data["score"]) / 100)
+                        st.progress(int(cd["score"]) / 100)
 
-            st.markdown("<hr style='margin:4px 0;border-color:#1e293b;'>", unsafe_allow_html=True)
-
-        # ── Bulk action ───────────────────────────────────────────────────────
-        st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        bulk_col1, bulk_col2 = st.columns([1, 5])
-        with bulk_col1:
-            if st.button("🤖  Process All with AI", use_container_width=True):
-                unscored = [s for s in st.session_state.submissions if s["status"] == "New"]
-                if unscored:
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    for i, sub in enumerate(unscored):
-                        status_text.markdown(f'<span style="color:#94a3b8;font-size:0.82rem;">Scoring {sub["name"]}…</span>', unsafe_allow_html=True)
-                        time.sleep(0.6)
-                        scores = ai_score_submission(sub, rubric)
-                        idx = next(j for j, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                        st.session_state.submissions[idx].update({
-                            "overall":     scores["overall"],
-                            "innovation":  scores["innovation"],
-                            "feasibility": scores["feasibility"],
-                            "categories":  scores["categories"],
-                            "status":      "Scored",
-                        })
-                        progress_bar.progress((i + 1) / len(unscored))
-                    status_text.empty()
-                    st.success(f"Scored {len(unscored)} submission(s)!")
-                    st.rerun()
-                else:
-                    st.info("No unscored submissions found.")
+            st.markdown("<hr style='margin:2px 0;border-color:#161b22;'>", unsafe_allow_html=True)
 
     else:
         st.markdown("""
-        <div style="text-align:center; padding: 60px 0; color: #475569;">
-            <div style="font-size:3rem; margin-bottom:16px;">📂</div>
-            <div style="font-size:1.1rem; font-weight:600; color:#64748b; margin-bottom:8px;">No submissions yet</div>
-            <div style="font-size:0.88rem;">Use the upload panel above to add your first innovation idea.</div>
+        <div class="empty-state">
+            <div class="empty-icon">📂</div>
+            <div class="empty-title">No submissions yet</div>
+            <div class="empty-sub">Use the New Submission panel above to add an idea.</div>
         </div>""", unsafe_allow_html=True)
 
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# PAGE: PIPELINE
-# ═══════════════════════════════════════════════════════════════════════════════
-elif page == "🔀  Pipeline":
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: PIPELINE — Linear-style kanban
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Pipeline":
 
     st.markdown("""
-    <div class="forge-header">
-        <h1>Innovation Pipeline</h1>
-        <p>Track your submissions across all 7 stages of the innovation lifecycle — from initial intake to live market monitoring.</p>
+    <div class="forge-topbar">
+      <div class="forge-topbar-left">
+        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Pipeline</span></div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
+
+    st.markdown('<div class="page-content">', unsafe_allow_html=True)
 
     subs = st.session_state.submissions
     stage_map = {s["name"]: [] for s in STAGES}
@@ -916,264 +1078,221 @@ elif page == "🔀  Pipeline":
         if sub["stage"] in stage_map:
             stage_map[sub["stage"]].append(sub)
 
-    # ── Flow diagram ──────────────────────────────────────────────────────────
-    st.markdown('<div class="section-title">Pipeline Flow</div>', unsafe_allow_html=True)
+    # ── Kanban board ──────────────────────────────────────────────────────────
+    st.markdown('<div class="section-hd">Board View</div>', unsafe_allow_html=True)
 
     cols = st.columns(len(STAGES))
-    for i, (stage, col) in enumerate(zip(STAGES, cols)):
+    for stage, col in zip(STAGES, cols):
         items = stage_map.get(stage["name"], [])
-        count = len(items)
-        avg = round(sum(s["overall"] for s in items) / max(count, 1), 1) if items else 0
-        avg_color = score_color_hex(avg)
-        avg_html = (
-            f'<div style="margin-top:8px;font-size:0.72rem;color:#64748b;">'
-            f'Avg Score: <span style="color:{avg_color};font-weight:600;">{avg}</span></div>'
-            if count else ""
-        )
         with col:
             st.markdown(f"""
-            <div class="stage-card" style="border-top: 3px solid {stage['color']};">
-                <div class="stage-number" style="background:{stage['color']}22; color:{stage['color']};">
-                    {i+1}
-                </div>
-                <div class="stage-name">{stage['name']}</div>
-                <div class="stage-count" style="color:{stage['color']};">{count}</div>
-                <div class="stage-desc">{stage.get('description', '')}</div>
-                {avg_html}
+            <div class="kanban-col-header">
+                <span class="kanban-col-name" style="color:{stage['color']}">{stage['name']}</span>
+                <span class="kanban-count">{len(items)}</span>
             </div>""", unsafe_allow_html=True)
 
-    # ── Sankey flow ───────────────────────────────────────────────────────────
+            if items:
+                for sub in items:
+                    badge = ""
+                    if sub["overall"] > 0:
+                        bc = score_badge_class(sub["overall"])
+                        badge = f'<span class="badge-score {bc}" style="font-size:10px;">{sub["overall"]}</span>'
+                    pc = pill_class(sub["status"])
+                    st.markdown(f"""
+                    <div class="kanban-card">
+                        <div class="kanban-card-title">{sub['name']}</div>
+                        <div class="kanban-card-meta">
+                            <span class="forge-id" style="font-size:10px;">{sub['id']}</span>
+                            {badge}
+                        </div>
+                        <div style="margin-top:6px;">
+                            <span class="pill {pc}" style="font-size:10px;">{sub['status']}</span>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="kanban-empty">No ideas</div>', unsafe_allow_html=True)
+
+    # ── Stage distribution bar chart ──────────────────────────────────────────
     if subs:
-        st.markdown('<div class="section-title">Stage Distribution</div>', unsafe_allow_html=True)
+        st.markdown('<div class="section-hd" style="margin-top:28px;">Stage Distribution</div>', unsafe_allow_html=True)
+        names  = [s["name"]  for s in STAGES]
         counts = [len(stage_map.get(s["name"], [])) for s in STAGES]
-        names = [s["name"] for s in STAGES]
         colors = [s["color"] for s in STAGES]
         fig_bar = go.Figure(go.Bar(
-            x=names, y=counts,
-            marker_color=colors,
+            x=names, y=counts, marker_color=colors,
             text=counts, textposition="auto",
-            textfont=dict(color="#e2e8f0", size=11),
+            textfont=dict(color="#e6edf3", size=11),
         ))
         fig_bar.update_layout(
-            paper_bgcolor="#1e293b", plot_bgcolor="#1e293b",
-            font={"color": "#94a3b8", "family": "Inter"},
-            xaxis=dict(gridcolor="#334155", color="#64748b"),
-            yaxis=dict(gridcolor="#334155", color="#64748b", title="Submissions"),
-            height=280, margin=dict(l=0, r=0, t=12, b=0),
+            paper_bgcolor="#161b22", plot_bgcolor="#161b22",
+            font={"color": "#8d96a3", "family": "Inter", "size": 11},
+            xaxis=dict(gridcolor="#21262d", color="#484f58"),
+            yaxis=dict(gridcolor="#21262d", color="#484f58", title="Submissions"),
+            height=220, margin=dict(l=0, r=0, t=8, b=0),
+            showlegend=False,
         )
         st.plotly_chart(fig_bar, use_container_width=True)
 
-    # ── Per-stage detail ──────────────────────────────────────────────────────
-    st.markdown('<div class="section-title">Submissions by Stage</div>', unsafe_allow_html=True)
-    for stage in STAGES:
-        items = stage_map.get(stage["name"], [])
-        with st.expander(f"{stage['name']}  ·  {len(items)} submission{'s' if len(items)!=1 else ''}"):
-            if items:
-                for sub in items:
-                    c1, c2, c3, c4 = st.columns([1.2, 3.5, 1.5, 1.5])
-                    c1.markdown(f'<span class="info-chip">{sub["id"]}</span>', unsafe_allow_html=True)
-                    c2.markdown(f'<span style="color:#e2e8f0;font-size:0.88rem;">{sub["name"]}</span>', unsafe_allow_html=True)
-                    if sub["overall"] > 0:
-                        css = score_color(sub["overall"])
-                        c3.markdown(f'<span class="{css}">Score: {sub["overall"]}</span>', unsafe_allow_html=True)
-                    else:
-                        c3.markdown('<span style="color:#475569;">Not scored</span>', unsafe_allow_html=True)
-                    sc = status_class(sub["status"])
-                    c4.markdown(f'<span class="status-pill {sc}">{sub["status"]}</span>', unsafe_allow_html=True)
-            else:
-                st.markdown('<span style="color:#475569;font-size:0.85rem;">No submissions in this stage.</span>', unsafe_allow_html=True)
-
-    # ── Conversion funnel ─────────────────────────────────────────────────────
-    if subs:
-        st.markdown('<div class="section-title">Conversion Funnel</div>', unsafe_allow_html=True)
-        for i, stage in enumerate(STAGES):
-            count = len(stage_map.get(stage["name"], []))
-            pct = count / max(len(subs), 1)
-            bar_w = max(pct, 0.02)
+        # ── Conversion funnel ──────────────────────────────────────────────
+        st.markdown('<div class="section-hd">Conversion Funnel</div>', unsafe_allow_html=True)
+        total_subs = max(len(subs), 1)
+        for stage in STAGES:
+            cnt = len(stage_map.get(stage["name"], []))
+            pct = cnt / total_subs
+            bar_w = max(int(pct * 100), 2)
             st.markdown(f"""
-            <div style="display:flex; align-items:center; margin-bottom:10px; gap:12px;">
-                <span style="width:110px; font-size:0.8rem; color:#94a3b8; text-align:right;">{stage['name']}</span>
-                <div style="flex:1; background:#0f172a; border-radius:4px; height:22px; overflow:hidden;">
-                    <div style="width:{int(bar_w*100)}%; background:{stage['color']}; height:100%; border-radius:4px;
-                                display:flex; align-items:center; padding-left:8px;">
-                        <span style="font-size:0.72rem; color:white; font-weight:600;">{count}</span>
-                    </div>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+              <span style="width:100px;font-size:11px;color:#8d96a3;text-align:right;flex-shrink:0;">{stage['name']}</span>
+              <div style="flex:1;background:#161b22;border-radius:3px;height:18px;overflow:hidden;border:1px solid #21262d;">
+                <div style="width:{bar_w}%;background:{stage['color']};height:100%;border-radius:2px;
+                            display:flex;align-items:center;padding-left:6px;">
+                  <span style="font-size:10px;color:#0d1117;font-weight:700;">{cnt}</span>
                 </div>
-                <span style="width:48px; font-size:0.78rem; color:#64748b;">{int(pct*100)}%</span>
+              </div>
+              <span style="width:36px;font-size:11px;color:#484f58;">{int(pct*100)}%</span>
             </div>""", unsafe_allow_html=True)
 
+    else:
+        st.markdown("""
+        <div class="empty-state">
+            <div class="empty-icon">🔀</div>
+            <div class="empty-title">Pipeline is empty</div>
+            <div class="empty-sub">Add submissions to see them flow through the pipeline.</div>
+        </div>""", unsafe_allow_html=True)
 
-# ═══════════════════════════════════════════════════════════════════════════════
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PAGE: RUBRIC SETTINGS
-# ═══════════════════════════════════════════════════════════════════════════════
-elif page == "⚙️  Rubric Settings":
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Rubric Settings":
 
     st.markdown("""
-    <div class="forge-header">
-        <h1>Rubric Settings</h1>
-        <p>Configure scoring categories, weights, and thresholds that drive the AI evaluation engine.</p>
+    <div class="forge-topbar">
+      <div class="forge-topbar-left">
+        <div class="forge-breadcrumb">ForgeOS &nbsp;/&nbsp; <span>Rubric Settings</span></div>
+      </div>
     </div>
     """, unsafe_allow_html=True)
 
+    st.markdown('<div class="page-content">', unsafe_allow_html=True)
+
     if not rubric:
-        st.error("No rubric.json found. Please create a rubric.json file in the project root.")
+        st.error("No rubric.json found.")
     else:
         criteria_list = rubric.get("criteria", [])
-        total_w = sum(c.get("weight", 0) for c in criteria_list)
-        crit_count = len(criteria_list)
+        total_w       = sum(c.get("weight", 0) for c in criteria_list)
+        gating        = rubric.get("gating_rules", [])
+        cat_palette   = ["#1f6feb","#238636","#9e6a03","#6e40c9","#d18000","#0ea5e9","#ec4899","#f85149"]
 
-        # ── Header info ────────────────────────────────────────────────────────
-        col_info1, col_info2 = st.columns([3, 1])
-        with col_info1:
-            st.markdown(f"""
-            <div class="rubric-category">
-                <div class="rubric-category-name">{rubric.get('rubric_name', 'Innovation Rubric')}</div>
-                <div class="rubric-category-desc">{rubric.get('description', '')}</div>
-                <div style="margin-top:8px;">
-                    <span class="info-chip">{crit_count} criteria</span>
-                    <span class="info-chip">Scores 1–10 per criterion</span>
-                    <span class="info-chip">Weighted avg out of 100</span>
-                </div>
-            </div>""", unsafe_allow_html=True)
-        with col_info2:
+        # ── Rubric header ─────────────────────────────────────────────────────
+        col_h1, col_h2, col_h3, col_h4 = st.columns(4)
+        with col_h1:
             w_ok = abs(total_w - 100) < 1
-            w_color = "#4ade80" if w_ok else "#f87171"
-            w_label = "Balanced" if w_ok else "Should sum to 100"
             st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-label">Total Weight</div>
-                <div class="metric-value" style="color:{w_color};">{total_w}%</div>
-                <div class="metric-sub">{w_label}</div>
+            <div class="forge-card">
+              <div class="stat-label">Rubric</div>
+              <div style="font-size:13px;font-weight:600;color:#e6edf3;margin:4px 0 2px;">{rubric.get('rubric_name','Innovation Rubric')[:30]}…</div>
+              <div style="font-size:11px;color:#484f58;">{len(criteria_list)} criteria</div>
+            </div>""", unsafe_allow_html=True)
+        with col_h2:
+            st.markdown(f"""
+            <div class="forge-card">
+              <div class="stat-label">Total Weight</div>
+              <div class="stat-value" style="color:{'#3fb950' if w_ok else '#f85149'}">{total_w}%</div>
+              <div class="stat-sub">{'Balanced ✓' if w_ok else 'Imbalanced'}</div>
+            </div>""", unsafe_allow_html=True)
+        with col_h3:
+            st.markdown(f"""
+            <div class="forge-card">
+              <div class="stat-label">Green Zone</div>
+              <div class="stat-value" style="color:#3fb950">≥ {THRESHOLDS['green']}</div>
+              <div class="stat-sub">High potential, fast-track</div>
+            </div>""", unsafe_allow_html=True)
+        with col_h4:
+            st.markdown(f"""
+            <div class="forge-card">
+              <div class="stat-label">Auto-Reject Rules</div>
+              <div class="stat-value" style="color:#f85149">{len(gating)}</div>
+              <div class="stat-sub">Gating rules active</div>
             </div>""", unsafe_allow_html=True)
 
-        # ── Scoring thresholds ─────────────────────────────────────────────────
-        st.markdown('<div class="section-title">Scoring Thresholds</div>', unsafe_allow_html=True)
-        t1, t2, t3 = st.columns(3)
-        with t1:
-            st.markdown(f"""
-            <div class="metric-card" style="border-color:#4ade8044;">
-                <div class="metric-label">Green Zone</div>
-                <div class="metric-value" style="color:#4ade80;">≥ {THRESHOLDS['green']}</div>
-                <div class="metric-sub">High potential, fast-track</div>
-            </div>""", unsafe_allow_html=True)
-        with t2:
-            st.markdown(f"""
-            <div class="metric-card" style="border-color:#fbbf2444;">
-                <div class="metric-label">Yellow Zone</div>
-                <div class="metric-value" style="color:#fbbf24;">{THRESHOLDS['yellow']}–{THRESHOLDS['green']-1}</div>
-                <div class="metric-sub">Needs review, conditional</div>
-            </div>""", unsafe_allow_html=True)
-        with t3:
-            st.markdown(f"""
-            <div class="metric-card" style="border-color:#f8717144;">
-                <div class="metric-label">Red Zone</div>
-                <div class="metric-value" style="color:#f87171;">< {THRESHOLDS['yellow']}</div>
-                <div class="metric-sub">Low priority, de-prioritize</div>
-            </div>""", unsafe_allow_html=True)
+        # ── Tabs ──────────────────────────────────────────────────────────────
+        tab_crit, tab_gate, tab_chart, tab_json = st.tabs(["Criteria", "Gating Rules", "Weight Chart", "Raw JSON"])
 
-        # ── Gating Rules ──────────────────────────────────────────────────────
-        gating = rubric.get("gating_rules", [])
-        if gating:
-            st.markdown('<div class="section-title">Gating Rules (Auto-Reject / Flag)</div>', unsafe_allow_html=True)
-            gate_html = "".join(
-                f'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-                f'<span style="color:#f87171;font-size:1rem;">⛔</span>'
-                f'<span style="font-size:0.85rem;color:#e2e8f0;">{rule}</span></div>'
-                for rule in gating
-            )
-            st.markdown(f'<div style="background:#0f172a;border:1px solid #334155;border-radius:10px;padding:16px 20px;">{gate_html}</div>', unsafe_allow_html=True)
+        with tab_crit:
+            for i, crit in enumerate(criteria_list):
+                color    = cat_palette[i % len(cat_palette)]
+                anchors  = crit.get("scoring_anchors", {})
+                subs_f   = crit.get("sub_factors", [])
+                redflags = crit.get("red_flags", [])
+                evidence = crit.get("evidence_required", "")
 
-        # ── Criteria weight chart ──────────────────────────────────────────────
-        st.markdown('<div class="section-title">Criteria Weights</div>', unsafe_allow_html=True)
+                with st.expander(f"{crit['criterion']}  ·  {crit.get('weight', 0)}%"):
+                    st.markdown(f'<p style="color:#8d96a3;font-size:12px;margin:0 0 12px 0;">{crit.get("description","")}</p>', unsafe_allow_html=True)
 
-        cat_colors = ["#3b82f6","#10b981","#f59e0b","#8b5cf6","#f97316","#06b6d4","#ec4899","#84cc16"]
-        cat_names   = [c["criterion"]      for c in criteria_list]
-        cat_weights = [c.get("weight", 0)  for c in criteria_list]
+                    cl, cr = st.columns([3, 2])
 
-        fig_weights = go.Figure(go.Bar(
-            x=cat_names, y=cat_weights,
-            marker_color=[cat_colors[i % len(cat_colors)] for i in range(len(cat_names))],
-            text=[f"{w}%" for w in cat_weights],
-            textposition="auto",
-            textfont=dict(color="#e2e8f0", size=11),
-        ))
-        fig_weights.update_layout(
-            paper_bgcolor="#1e293b", plot_bgcolor="#1e293b",
-            font={"color": "#94a3b8", "family": "Inter"},
-            xaxis=dict(gridcolor="#334155", color="#64748b", tickangle=-25),
-            yaxis=dict(gridcolor="#334155", color="#64748b", title="Weight (%)"),
-            height=260, margin=dict(l=0, r=0, t=8, b=60),
-        )
-        st.plotly_chart(fig_weights, use_container_width=True)
+                    with cl:
+                        if anchors:
+                            st.markdown('<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#484f58;font-weight:700;margin-bottom:8px;">Scoring Anchors</div>', unsafe_allow_html=True)
+                            anchor_map = {"1-3": ("anchor-low","#f85149"), "4-6": ("anchor-mid","#d29922"), "7-10": ("anchor-high","#3fb950")}
+                            for band, desc in anchors.items():
+                                cls_n, clr = anchor_map.get(band, ("", "#484f58"))
+                                st.markdown(f"""
+                                <div class="anchor-band {cls_n}">
+                                  <span style="color:{clr};font-weight:700;font-size:11px;">{band}</span>
+                                  <span style="color:#8d96a3;font-size:11px;margin-left:8px;">{desc}</span>
+                                </div>""", unsafe_allow_html=True)
 
-        # ── Criterion detail cards ─────────────────────────────────────────────
-        st.markdown('<div class="section-title">Criterion Detail</div>', unsafe_allow_html=True)
-        for i, crit in enumerate(criteria_list):
-            color = cat_colors[i % len(cat_colors)]
-            anchors = crit.get("scoring_anchors", {})
-            sub_factors = crit.get("sub_factors", [])
-            red_flags = crit.get("red_flags", [])
-            evidence = crit.get("evidence_required", "")
-
-            with st.expander(f"{crit['criterion']}  ·  Weight: {crit.get('weight', 0)}%"):
-                st.markdown(f'<span style="color:#94a3b8;font-size:0.85rem;">{crit.get("description","")}</span>', unsafe_allow_html=True)
-                st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-
-                col_left, col_right = st.columns([3, 2])
-
-                with col_left:
-                    # Scoring anchors
-                    if anchors:
-                        st.markdown('<span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:#475569;font-weight:600;">Scoring Anchors</span>', unsafe_allow_html=True)
-                        anchor_colors = {"1-3": "#f87171", "4-6": "#fbbf24", "7-10": "#4ade80"}
-                        for band, desc in anchors.items():
-                            ac = anchor_colors.get(band, "#94a3b8")
+                        if evidence:
                             st.markdown(f"""
-                            <div style="background:#0f172a;border-left:3px solid {ac};border-radius:6px;
-                                        padding:8px 12px;margin:6px 0;">
-                                <span style="color:{ac};font-weight:700;font-size:0.8rem;">{band}</span>
-                                <span style="color:#94a3b8;font-size:0.8rem;margin-left:8px;">{desc}</span>
+                            <div style="margin-top:12px;padding:8px 12px;background:#0d1117;border:1px solid #21262d;border-radius:6px;">
+                              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#484f58;font-weight:700;margin-bottom:4px;">Evidence Required</div>
+                              <div style="font-size:12px;color:#8d96a3;">{evidence}</div>
                             </div>""", unsafe_allow_html=True)
 
-                    # Evidence required
-                    if evidence:
-                        st.markdown(f"""
-                        <div style="margin-top:10px;background:#0f172a;border:1px solid #334155;
-                                    border-radius:6px;padding:8px 12px;">
-                            <span style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;
-                                         color:#475569;font-weight:600;">Evidence Required</span><br>
-                            <span style="color:#94a3b8;font-size:0.8rem;">{evidence}</span>
-                        </div>""", unsafe_allow_html=True)
+                    with cr:
+                        if subs_f:
+                            st.markdown('<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#484f58;font-weight:700;margin-bottom:8px;">Sub-Factors</div>', unsafe_allow_html=True)
+                            tags = "".join(f'<span class="subfactor-tag">▸ {sf}</span>' for sf in subs_f)
+                            st.markdown(f'<div style="display:flex;flex-wrap:wrap;gap:4px;">{tags}</div>', unsafe_allow_html=True)
 
-                with col_right:
-                    # Sub-factors
-                    if sub_factors:
-                        st.markdown('<span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:#475569;font-weight:600;">Sub-Factors</span>', unsafe_allow_html=True)
-                        sf_html = "".join(
-                            f'<div style="display:flex;align-items:center;gap:8px;margin:5px 0;">'
-                            f'<span style="color:{color};font-size:0.7rem;">▸</span>'
-                            f'<span style="color:#e2e8f0;font-size:0.82rem;">{sf}</span></div>'
-                            for sf in sub_factors
-                        )
-                        st.markdown(f'<div style="background:#0f172a;border:1px solid #334155;border-radius:6px;padding:10px 14px;">{sf_html}</div>', unsafe_allow_html=True)
+                        if redflags:
+                            st.markdown('<div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:#484f58;font-weight:700;margin:12px 0 8px;">Red Flags</div>', unsafe_allow_html=True)
+                            flags_html = "".join(f'<div class="redflag-item">⚑ {rf}</div>' for rf in redflags)
+                            st.markdown(f'<div style="background:#2b0f0f18;border:1px solid #6e181822;border-radius:6px;padding:10px 12px;">{flags_html}</div>', unsafe_allow_html=True)
 
-                    # Red flags
-                    if red_flags:
-                        st.markdown('<span style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.06em;color:#475569;font-weight:600;margin-top:10px;display:block;">Red Flags</span>', unsafe_allow_html=True)
-                        rf_html = "".join(
-                            f'<div style="display:flex;align-items:center;gap:8px;margin:5px 0;">'
-                            f'<span style="color:#f87171;font-size:0.75rem;">⚑</span>'
-                            f'<span style="color:#f87171;font-size:0.82rem;">{rf}</span></div>'
-                            for rf in red_flags
-                        )
-                        st.markdown(f'<div style="background:#2a0a0a;border:1px solid #7f1d1d44;border-radius:6px;padding:10px 14px;margin-top:6px;">{rf_html}</div>', unsafe_allow_html=True)
+        with tab_gate:
+            if gating:
+                st.markdown('<div style="height:8px"></div>', unsafe_allow_html=True)
+                for rule in gating:
+                    st.markdown(f'<div class="gate-rule"><span style="color:#f85149;font-size:14px;">⛔</span> {rule}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown('<p style="color:#484f58;font-size:13px;">No gating rules defined.</p>', unsafe_allow_html=True)
 
-        # ── Rubric JSON view ────────────────────────────────────────────────
-        st.markdown('<div class="section-title">Raw Rubric (rubric.json)</div>', unsafe_allow_html=True)
-        st.json(rubric, expanded=False)
+        with tab_chart:
+            names_c  = [c["criterion"] for c in criteria_list]
+            weights_c = [c.get("weight", 0) for c in criteria_list]
+            fig_w = go.Figure(go.Bar(
+                x=names_c, y=weights_c,
+                marker_color=[cat_palette[i % len(cat_palette)] for i in range(len(names_c))],
+                text=[f"{w}%" for w in weights_c],
+                textposition="auto",
+                textfont=dict(color="#e6edf3", size=11),
+            ))
+            fig_w.update_layout(
+                paper_bgcolor="#161b22", plot_bgcolor="#161b22",
+                font={"color": "#8d96a3", "family": "Inter", "size": 11},
+                xaxis=dict(gridcolor="#21262d", color="#484f58", tickangle=-30),
+                yaxis=dict(gridcolor="#21262d", color="#484f58", title="Weight (%)"),
+                height=300, margin=dict(l=0, r=0, t=8, b=80),
+            )
+            st.plotly_chart(fig_w, use_container_width=True)
 
-        st.info(
-            "To modify the rubric, edit **rubric.json** in the project root and restart the app. "
-            "Changes to criteria, weights, and thresholds will take effect immediately.",
-            icon="ℹ️"
-        )
+        with tab_json:
+            st.json(rubric, expanded=False)
+            st.info("Edit rubric.json and restart the app to apply changes.", icon="ℹ️")
+
+    st.markdown('</div>', unsafe_allow_html=True)
