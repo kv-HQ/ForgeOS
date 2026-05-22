@@ -525,6 +525,8 @@ if "submissions" not in st.session_state:
     st.session_state.submissions = []
 if "next_id" not in st.session_state:
     st.session_state.next_id = 1001
+if "flash_msg" not in st.session_state:
+    st.session_state.flash_msg = None
 
 STAGES = rubric.get("pipeline_stages", [
     {"id": 1, "name": "Intake",       "color": "#6e40c9"},
@@ -902,49 +904,367 @@ def ai_score_submission(submission, rubric_data):
 
 def generate_stage_summary(submission, new_stage):
     """
-    Simulate an AI-generated advancement note when a submission moves to the
-    next pipeline stage. Returns a realistic, idea-specific operational summary.
+    Generate a rich, physical-goods-specific HTML stage summary.
+    Product type is inferred from the submission name; all content is
+    pre-computed so no backslash escapes appear inside f-string expressions.
     """
     name  = submission.get("name", "this idea")
-    score = submission.get("overall", 0)
-    sc    = f" — ForgeOS score: {score}/100" if score > 0 else ""
+    nl    = name.lower()
 
-    TEMPLATES = {
-        "Concept": [
-            f"Concept review opened for '{name}'{sc}. The innovation profile shows early differentiation; the next critical actions are a structured prior-art review, TAM/SAM/SOM validation, and a first-pass IP landscape assessment. Assign a concept owner and set a 2-week gate review.",
-            f"'{name}' enters Concept stage{sc}. Initial rubric signals are promising — recommend a 5-day deep-dive sprint covering: (1) competitive positioning map, (2) material/process novelty assessment, and (3) a first-cut BOM to anchor feasibility assumptions.",
-            f"Concept stage activated for '{name}'{sc}. Evidence package flagged for peer review. Priority gap: strengthen the market validation narrative with at least 3 customer interviews before the next stage gate. IP filing timeline to be confirmed with counsel.",
-        ],
-        "Validation": [
-            f"Technical and market validation commenced for '{name}'{sc}. Critical path items: BOM review with 2 qualified suppliers, customer discovery interviews (target: 10 B2B decision-makers), and initial regulatory pathway mapping. Stage gate: 4 weeks.",
-            f"'{name}' advances to Validation{sc}. Engineering deep-dive and LCA review are the priority workstreams. Sustainability claims require third-party data validation — greenwashing risk flag raised during concept review. Compliance counsel engaged.",
-            f"Validation stage active for '{name}'{sc}. Manufacturing feasibility is the key unknown: commission a first-article cost estimate and identify 3 potential contract manufacturers. Market validation to run in parallel with a structured demand-testing experiment.",
-        ],
-        "Prototyping": [
-            f"Prototype development initiated for '{name}'{sc}. Manufacturing partner shortlisted from Validation stage. First-article testing targets set: dimensional accuracy ±0.5mm, material spec confirmed, cost-at-volume within 15% of model. 8-week sprint cadence with weekly build-test-learn cycles.",
-            f"'{name}' enters Rapid Prototyping{sc}. Tooling cost review approved; materials sourcing order placed with primary supplier. Prototype spec sheet attached to this record. Key risk: lead time on proprietary components — mitigation: dual-source strategy activated.",
-            f"Prototyping sprint live for '{name}'{sc}. Cross-functional team assembled: product engineering, industrial design, and supply chain. Milestone 1 (functional prototype): Week 4. Milestone 2 (user testing prototype): Week 8. Go/no-go decision at Week 9 gate.",
-        ],
-        "Market Test": [
-            f"Market test phase launched for '{name}'{sc}. Beta cohort of 50 early adopters identified across 2 target segments. NPS baseline set; return rate and unit sell-through tracked weekly. Pricing model A/B tested: premium vs value anchor in pilot region. Results review at 6-week mark.",
-            f"'{name}' enters limited market release{sc}. Channel partnership finalised with regional distributor. SKU count limited to 1 hero variant for test — learnings will inform range extension decisions. Real-world performance data will be the primary input for the full production go/no-go.",
-            f"Market test initiated for '{name}'{sc}. E-commerce pilot live with a controlled ad spend of $5K/month. Target metrics: CAC < $40, conversion rate > 2.5%, repeat purchase within 60 days. Qualitative feedback loop via post-purchase survey activated. Stage review at 8 weeks.",
-        ],
-        "Scaling": [
-            f"Scaling phase activated for '{name}'{sc}. Minimum order quantities confirmed with primary manufacturer; volume pricing locked at target margin. Supply chain hardening in progress: safety stock model built, 2nd-tier supplier qualified. QMS documentation initiated.",
-            f"'{name}' approved for full production ramp{sc}. Inventory build plan: 3-month rolling forecast with 4-week safety buffer. Channel expansion into 3 new territories approved — logistics and customs compliance review completed. Marketing asset library handed to growth team.",
-            f"Scaling stage live for '{name}'{sc}. Commercial ops handover complete. Demand planning model updated with real market test sell-through data. Key focus: maintaining quality at volume — inline QC checkpoints inserted at 3 production milestones. Weekly operations review commenced.",
-        ],
-        "Monitoring": [
-            f"Post-launch monitoring active for '{name}'{sc}. KPI dashboard live: units sold, return rate, NPS, gross margin, and CAC tracked weekly. 90-day performance review scheduled. Alert thresholds set: return rate > 3% triggers engineering review; NPS < 40 triggers product council.",
-            f"'{name}' enters live monitoring{sc}. Return rate, NPS, and unit economics tracked against targets set at Market Test gate. First monthly business review scheduled. Customer feedback loops formalised: support ticket analysis, review mining, and quarterly user interviews.",
-            f"Monitoring phase commenced for '{name}'{sc}. Continuous improvement backlog created from beta feedback. Product council review quarterly. Innovation pipeline team notified: insights from '{name}' to feed into next-generation concept exploration within 6 months.",
-        ],
+    # ── Product-type detection ─────────────────────────────────────────────────
+    is_bio     = any(w in nl for w in ["bio", "mycelium", "compost", "organic", "plant", "hemp"])
+    is_carbon  = any(w in nl for w in ["carbon", "fibre", "fiber", "graphene"])
+    is_polymer = any(w in nl for w in ["polymer", "coating", "composite", "resin", "foam", "panel"])
+    is_mech    = any(w in nl for w in ["motor", "drive", "exoskeleton", "frame", "actuator", "gear"])
+    is_thermal = any(w in nl for w in ["thermal", "insulation", "heat", "cooling", "regulator"])
+    is_pack    = any(w in nl for w in ["packaging", "pack", "wrap", "container", "pouch"])
+    is_wear    = any(w in nl for w in ["sleeve", "compression", "garment", "textile", "wearable"])
+    is_smart   = any(w in nl for w in ["smart", "sensor", "iot", "connected", "digital", "electronic"])
+
+    # ── Material / commercial context ─────────────────────────────────────────
+    if is_bio:
+        mat1     = "Mycelium composite (Ecovative-spec substrate)"
+        mat2     = "Recycled PLA structural reinforcement"
+        mfg      = "Compression moulding with biodegradable release agents"
+        bom      = "$4–$9 per unit at 5K MOQ"
+        retail   = "$18–$35 DTC / $10–$18 wholesale"
+        r_tech   = "Medium"
+        r_reg    = "Low (food-contact cert. if applicable)"
+        r_mkt    = "Medium — consumer education required on novel materials"
+        kpis     = ["Biodegradation rate (days)", "Compressive strength (kPa)", "Customer NPS"]
+        sup_list = ["Ecovative Design", "Mogu S.r.l.", "BioFab"]
+    elif is_carbon or is_polymer:
+        mat1     = "High-performance polymer alloy (PEEK/PA66 blend)"
+        mat2     = "UD carbon-fibre prepreg (T300 grade)"
+        mfg      = "Autoclave cure + CNC post-processing for tight tolerances"
+        bom      = "$18–$38 per unit at 2K MOQ"
+        retail   = "$75–$180 B2B / OEM channel"
+        r_tech   = "High — thermal cycling and UV degradation testing required"
+        r_reg    = "Medium — REACH compliance, RoHS if electronic"
+        r_mkt    = "Low — industrial buyers are specification-driven"
+        kpis     = ["Tensile strength vs spec", "Surface defect rate (%)", "B2B reorder rate"]
+        sup_list = ["Toray Industries", "Solvay", "Hexcel"]
+    elif is_mech:
+        mat1     = "Aerospace-grade Al 6061-T6 billet"
+        mat2     = "Carbon-fibre composite structural panels"
+        mfg      = "CNC machining + die-casting; anodised finish"
+        bom      = "$25–$55 per unit at 1K MOQ"
+        retail   = "$120–$280 direct + distributor"
+        r_tech   = "High — dynamic load, fatigue, and drop-test certification required"
+        r_reg    = "Medium — CE marking / UL for mechatronic variants"
+        r_mkt    = "Medium — OEM partnerships accelerate channel velocity"
+        kpis     = ["Mean cycles to failure", "Assembly defect rate (%)", "On-time delivery %"]
+        sup_list = ["Protocase", "Xometry", "Fictiv"]
+    elif is_thermal:
+        mat1     = "Aerogel-reinforced silica blanket (10mm)"
+        mat2     = "Vacuum-insulated panel (VIP) core option"
+        mfg      = "Lamination + die-cutting with sealed edge processing"
+        bom      = "$9–$22 per unit at 3K MOQ"
+        retail   = "$40–$95 DTC; $22–$50 wholesale"
+        r_tech   = "Medium — moisture ingress and thermal cycling required"
+        r_reg    = "Low — confirm UL 94 flammability rating"
+        r_mkt    = "Medium — technical sell requires performance data sheets"
+        kpis     = ["Thermal resistance (R-value)", "Moisture ingress rate", "Field failure rate"]
+        sup_list = ["Cabot Corporation", "Evonik", "Kingspan Group"]
+    elif is_pack:
+        mat1     = "Cellulose-based moulded fibre (recycled content)"
+        mat2     = "PHA bioplastic barrier coating"
+        mfg      = "Wet-press moulded fibre + inline PHA spray coating"
+        bom      = "$0.45–$1.40 per unit at 50K MOQ"
+        retail   = "$2.20–$4.80 wholesale to brand customers"
+        r_tech   = "Low — key risk is moisture-barrier performance spec"
+        r_reg    = "Low — confirm EN 13432 / ASTM D6400 compostability"
+        r_mkt    = "Low — strong regulatory tailwinds (SUP Directive, plastic bans)"
+        kpis     = ["WVTR (g/m²/day)", "Unit cost vs virgin plastic", "Brand customer LTV"]
+        sup_list = ["Huhtamaki", "Sealed Air", "Smurfit Kappa"]
+    elif is_wear:
+        mat1     = "Medical-grade 70D nylon/elastane knit (CE Class I)"
+        mat2     = "Silicone grip bead strips"
+        mfg      = "Cut-and-sew flatlock seaming; ultrasonic bonding option"
+        bom      = "$6–$14 per unit at 5K MOQ"
+        retail   = "$39–$89 DTC; $22–$45 wholesale"
+        r_tech   = "Low — main risk is sizing accuracy across segments"
+        r_reg    = "Medium — CE Class I MDR 2017/745 if medical claims made"
+        r_mkt    = "Medium — DTC channel requires clinical claims or influencer evidence"
+        kpis     = ["Return rate by size band", "NPS", "Reorder rate at 90 days"]
+        sup_list = ["Sanfori", "Amann Group", "Coats plc"]
+    elif is_smart:
+        mat1     = "PCB assembly (4-layer, 35μm copper, FR4 substrate)"
+        mat2     = "Polycarbonate IP65 enclosure"
+        mfg      = "SMT PCBA + injection-moulded housing + firmware flash and test"
+        bom      = "$20–$48 per unit at 2K MOQ"
+        retail   = "$89–$199 DTC; $45–$95 OEM"
+        r_tech   = "High — EMC (CE/FCC), battery safety (UN38.3) required"
+        r_reg    = "High — CE mandatory; FCC ID for US; UKCA post-Brexit"
+        r_mkt    = "Medium — SaaS/platform revenue model improves LTV significantly"
+        kpis     = ["Device uptime (%)", "MTBF (hours)", "MRR growth"]
+        sup_list = ["JLCPCB", "PCBWay", "Foxconn"]
+    else:
+        mat1     = "Primary material TBD — pending Validation review"
+        mat2     = "Secondary reinforcement TBD"
+        mfg      = "Manufacturing process to be determined post feasibility review"
+        bom      = "TBD — cost modelling scheduled for Validation"
+        retail   = "TBD"
+        r_tech   = "TBD"
+        r_reg    = "TBD"
+        r_mkt    = "TBD"
+        kpis     = ["Core product KPI", "Quality metric", "Commercial metric"]
+        sup_list = ["Suppliers to be sourced at Validation"]
+
+    sup1 = sup_list[0]
+    sup2 = sup_list[1] if len(sup_list) > 1 else "TBD"
+    kpi1 = kpis[0]
+    kpi2 = kpis[1] if len(kpis) > 1 else "Quality metric"
+    kpi3 = kpis[2] if len(kpis) > 2 else "Commercial metric"
+    mat1_short = mat1.split("(")[0].strip()
+    mat2_short = mat2.split("(")[0].strip()
+
+    seed = int(hashlib.md5((name + new_stage).encode()).hexdigest()[:8], 16)
+    rng  = random.Random(seed)
+
+    # ── HTML building helpers (inline styles only) ────────────────────────────
+    def bul(items, color="#58a6ff"):
+        parts = []
+        for item in items:
+            parts.append(
+                f'<div style="font-size:11px;color:#b0b8c4;line-height:1.75;">'
+                f'<span style="color:{color};">▸</span> {item}</div>'
+            )
+        return "".join(parts)
+
+    def sec(title, body):
+        return (
+            f'<div style="margin-bottom:10px;">'
+            f'<div style="font-size:9px;text-transform:uppercase;letter-spacing:0.1em;'
+            f'color:#8b949e;font-weight:700;margin-bottom:5px;">{title}</div>'
+            f'{body}'
+            f'</div>'
+        )
+
+    def kv(label, val):
+        return (
+            f'<div style="font-size:11px;color:#b0b8c4;margin-bottom:3px;">'
+            f'<span style="color:#8b949e;">{label}:</span> <b style="color:#e6edf3;">{val}</b></div>'
+        )
+
+    footer_style = (
+        'style="font-size:10px;color:#6e7681;border-top:1px solid #21262d44;'
+        'padding-top:6px;margin-top:6px;"'
+    )
+
+    # ── Per-stage templates (2 variants, seeded pick) ─────────────────────────
+    CONCEPT = [
+        sec("Refined Product Specification v0.1",
+            kv("Concept", name)
+            + kv("Primary material", mat1)
+            + kv("Secondary", mat2)
+            + kv("Manufacturing process", mfg)
+            + kv("Unit cost target", bom))
+        + sec("Key Design Decisions", bul([
+            "Lock in differentiated feature set before IP filing window closes",
+            "Confirm material supply chain depth with 2+ qualified vendors",
+            f"Commission DFM review from {sup1} or equivalent contract manufacturer",
+            "Benchmark vs top 3 competitors: pricing, performance, sustainability",
+        ]))
+        + f'<div {footer_style}>Next gate: Concept review + rubric re-score in 14 days</div>',
+
+        sec("Material & Process Rationale",
+            kv("Primary", mat1)
+            + kv("Secondary", mat2)
+            + kv("Process", mfg)
+            + kv("BOM target", bom))
+        + sec("Initial Design Direction", bul([
+            f"Form factor: compact, production-ready, optimised for {mfg.split('+')[0].strip().lower()}",
+            "Finish: premium industrial aesthetic — anodised / matte / textured",
+            "Key interaction: single-touch / tool-free / zero-waste assembly principle",
+            "IP note: provisional patent application recommended within 30 days",
+        ], color="#3fb950"))
+        + f'<div {footer_style}>Next gate: Concept review + rubric re-score in 14 days</div>',
+    ]
+
+    VALIDATION = [
+        sec("Risk Analysis",
+            kv("Technical risk", r_tech)
+            + kv("Regulatory risk", r_reg)
+            + kv("Market risk", r_mkt))
+        + sec("Feasibility Summary", bul([
+            f"Manufacturing process: {mfg}",
+            f"Indicative BOM: {bom}",
+            f"Target retail: {retail}",
+            "First-article lead time: 8–12 weeks from tooling sign-off",
+            f"Primary supplier candidate: {sup1}",
+        ]))
+        + sec("Validation Sprint — 4 Weeks", bul([
+            f"Week 1–2: BOM costing with {sup1} and {sup2} (RFQs issued)",
+            "Week 2–3: Customer discovery — 10 B2B decision-maker interviews",
+            "Week 3–4: Regulatory pathway mapping + compliance counsel brief",
+        ], color="#d29922"))
+        + f'<div {footer_style}>Gate criteria: BOM within 15% of model · 8+ positive customer interviews</div>',
+
+        sec("Technical Feasibility Report", bul([
+            f"Core material: {mat1}",
+            f"Process: {mfg}",
+            f"Technical risk: {r_tech}",
+            f"First-article cost estimate commissioned from {sup1}",
+        ]))
+        + sec("Market Validation Plan", bul([
+            "Target: 10 structured interviews with procurement / R&D decision-makers",
+            f"Pricing hypothesis: {retail}",
+            "Key probe: willingness to pay vs incumbent solution price point",
+            f"Regulatory path: {r_reg}",
+        ]))
+        + f'<div {footer_style}>Gate criteria: BOM within 15% of model · 8+ positive customer interviews</div>',
+    ]
+
+    PROTOTYPING = [
+        sec("Bill of Materials — Draft v0.1", bul([
+            f"[01] {mat1_short} — bulk pricing from {sup1}",
+            f"[02] {mat2_short} — RFQ issued to {sup2}",
+            "[03] Tooling and fixturing — amortised over 5K+ units",
+            "[04] Assembly labour — CMO rate TBD (target: below 20% of BOM)",
+            f"[05] Packaging — included in BOM target of {bom}",
+            "[06] QC testing per unit — est. $0.50–$1.50",
+        ]))
+        + sec("Prototype Milestones", bul([
+            "Week 1–2: CAD finalisation + DFM sign-off with CMO",
+            "Week 3–4: Tooling order placed; first-article by Week 6",
+            "Week 5–6: Functional prototype build + internal performance test",
+            "Week 7–8: User testing cohort (n=12) + design iteration",
+            "Week 9: Go/no-go gate review with updated rubric score",
+        ], color="#3fb950"))
+        + f'<div {footer_style}>Manufacturing partner shortlisted: {sup1}</div>',
+
+        sec("Prototyping Plan", bul([
+            f"Process: {mfg}",
+            f"CMO shortlist: {sup1} (primary), {sup2} (backup)",
+            "Target: 3 functional prototypes + 5 for user testing cohort",
+            f"BOM target: {bom}",
+            "Critical path: tooling lead time typically 6–10 weeks",
+        ]))
+        + sec("Testing Protocol", bul([
+            "Performance: validate vs rubric scoring anchor specifications",
+            "Durability: 500-cycle accelerated life test (IEC 60068 reference)",
+            f"Regulatory pre-screen: {r_reg}",
+            "User sessions: structured 45-min tests with 12 target customers",
+        ], color="#d29922"))
+        + f'<div {footer_style}>Gate criteria: prototype meets spec · user NPS at or above 45</div>',
+    ]
+
+    MARKET_TEST = [
+        sec("Go-to-Market Outline", bul([
+            "Channel 1: DTC e-commerce (Shopify) — hero SKU only for focus",
+            "Channel 2: 1 regional distributor for B2B / trade pilot",
+            "Launch geography: UK + DACH (EU regulatory alignment)",
+            "Launch cohort: 50 beta customers from validated discovery pool",
+        ]))
+        + sec("Pricing Strategy", bul([
+            f"Anchor price: {retail}",
+            "Approach: value-based — benchmark vs incumbent at 1.3x premium",
+            "A/B test: premium vs value positioning in paid acquisition",
+            f"Gross margin at {bom}: target 55–65% DTC / 40–50% wholesale",
+        ], color="#d29922"))
+        + sec("Target Customer Profile", bul([
+            "Primary: procurement leads at mid-market manufacturers (50–500 employees)",
+            "Secondary: DTC early adopters in sustainability / performance segment",
+            "Core pain point: current solutions fail on performance, cost, or sustainability",
+        ]))
+        + f'<div {footer_style}>Gate: 8-week sell-through at or above 60% · NPS at or above 45 · CAC within model</div>',
+
+        sec("Launch Playbook", bul([
+            f"Hero SKU: {name} — single variant for market focus",
+            f"Price point: {retail} — tested and validated with beta cohort",
+            "Acquisition: paid search + LinkedIn (B2B) + partner referral programme",
+            "Week 1–2: soft launch to beta list; Week 3+: paid channels fully live",
+        ]))
+        + sec("Commercial Assumptions", bul([
+            f"BOM at launch: {bom}",
+            "Gross margin target: 55–65% DTC / 40–50% wholesale",
+            "CAC budget: 15–20% of first-year estimated LTV",
+            "Payback period target: 9 months or less",
+        ], color="#3fb950"))
+        + f'<div {footer_style}>Gate: 8-week sell-through at or above 60% · NPS at or above 45 · CAC within model</div>',
+    ]
+
+    SCALING = [
+        sec("Supply Chain Plan", bul([
+            f"Tier 1 CMO: {sup1} — primary, 70% of volume commitment",
+            f"Tier 2 backup: {sup2} — 30% or overflow (dual-source strategy active)",
+            "Safety stock: 8 weeks forward cover at rolling forecast volume",
+            "Incoterms: DAP — landed cost fully included in margin model",
+            "Sea freight lead time: 10–14 weeks farm-to-warehouse",
+        ]))
+        + sec("Volume Cost Model", bul([
+            f"Unit BOM at 10K MOQ: {bom}",
+            f"Target retail: {retail}",
+            "Logistics and duty: estimated 8–12% of landed cost",
+            "Gross margin at scale: 58–68% DTC / 42–52% wholesale",
+            "Breakeven volume: modelled at 3.5K units per month",
+        ], color="#3fb950"))
+        + f'<div {footer_style}>QMS: ISO 9001 scope extension filed; 3 inline QC checkpoints active</div>',
+
+        sec("Manufacturing Scale-Up", bul([
+            f"Primary CMO: {sup1} — NDA and quality agreement signed",
+            f"Process: {mfg}",
+            "Production ramp: 1K to 5K to 15K units over 3 quarters",
+            "Tooling investment amortised over 12 months at forecast volume",
+        ]))
+        + sec("Operational Priorities", bul([
+            "QMS: 8 inline inspection points defined and staffed",
+            "Compliance: all certifications confirmed before channel expansion",
+            "Inventory: demand-driven replenishment model activated",
+            "Channel: 3 new distributors contracted for Q2 rollout",
+        ], color="#58a6ff"))
+        + f'<div {footer_style}>QMS: ISO 9001 scope extension filed; 3 inline QC checkpoints active</div>',
+    ]
+
+    MONITORING = [
+        sec("KPI Dashboard — Live Tracking", bul([
+            f"Product: {kpi1} — weekly vs baseline target",
+            f"Quality: {kpi2} — automated alert if threshold breached",
+            f"Commercial: {kpi3} — cohort analysis run monthly",
+            "Return rate: target below 2.5%; triggers engineering review above 4%",
+            "NPS: monthly pulse survey; target score at or above 50",
+            "Gross margin: weekly P&L reviewed vs model",
+        ]))
+        + sec("90-Day Review Framework", bul([
+            "Day 30: first commercial report — sell-through, returns, NPS baseline",
+            "Day 60: product council review — improvement backlog prioritised",
+            "Day 90: full P&L vs model; go/no-go for next-gen variant scoping",
+        ], color="#3fb950"))
+        + f'<div {footer_style}>V2 concept exploration scoped for month 4; innovation team briefed</div>',
+
+        sec("Post-Launch Improvement Roadmap", bul([
+            "Sprint 1 (month 1): resolve top 3 issues from beta customer feedback",
+            "Sprint 2 (month 2): packaging cost optimisation — target 8% reduction",
+            f"Sprint 3 (month 3): premium variant scoping for {name} V2",
+            "Month 4: innovation brief to pipeline team for next-gen concept",
+        ]))
+        + sec("Live Metrics", bul([
+            f"Tracking: {kpi1}, {kpi2}, {kpi3}",
+            "Alert thresholds set in ops dashboard",
+            "Weekly ops standup: return rate, NPS, gross margin reviewed",
+            "Customer feedback loop: support tickets + quarterly user panel",
+        ], color="#58a6ff"))
+        + f'<div {footer_style}>V2 concept exploration scoped for month 4; innovation team briefed</div>',
+    ]
+
+    INTAKE_FALLBACK = [
+        f'<div style="font-size:11px;color:#b0b8c4;">'
+        f'{name} returned to Intake for re-assessment. '
+        f'Assign a stage owner and complete the rubric scoring checklist before re-advancing.</div>'
+    ]
+
+    template_map = {
+        "Concept":     CONCEPT,
+        "Validation":  VALIDATION,
+        "Prototyping": PROTOTYPING,
+        "Market Test": MARKET_TEST,
+        "Scaling":     SCALING,
+        "Monitoring":  MONITORING,
     }
 
-    options = TEMPLATES.get(new_stage, [f"'{name}' advanced to {new_stage}{sc}. Assign a stage owner, review the checklist, and set the next gate date."])
-    seed = int(hashlib.md5((name + new_stage).encode()).hexdigest()[:8], 16)
-    return random.Random(seed).choice(options)
+    options = template_map.get(new_stage, INTAKE_FALLBACK)
+    return rng.choice(options)
 
 def add_demo_submissions():
     demos = [
@@ -1041,8 +1361,8 @@ with st.sidebar:
 
     st.markdown("""
     <div style="padding: 20px 16px 8px 16px;border-top:1px solid #21262d;margin-top:12px;">
-        <div style="font-size:11px;font-weight:600;color:#8b949e;">ForgeOS v0.1</div>
-        <div style="font-size:10px;color:#6e7681;margin-top:2px;">Built in 1 day · AI Scoring Engine</div>
+        <div style="font-size:11px;font-weight:600;color:#8b949e;">ForgeOS v0.2</div>
+        <div style="font-size:10px;color:#6e7681;margin-top:2px;">Day 2 Polish · AI Scoring Engine</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -1231,6 +1551,19 @@ elif page == "Submissions":
 
     st.markdown('<div class="page-content">', unsafe_allow_html=True)
 
+    # ── Flash message ─────────────────────────────────────────────────────────
+    if st.session_state.flash_msg:
+        ftype, fmsg = st.session_state.flash_msg
+        st.session_state.flash_msg = None
+        if ftype == "success":
+            st.success(fmsg)
+        elif ftype == "info":
+            st.info(fmsg)
+        elif ftype == "warning":
+            st.warning(fmsg)
+        else:
+            st.error(fmsg)
+
     # ── Upload panel ──────────────────────────────────────────────────────────
     with st.expander("➕  New Submission", expanded=not st.session_state.submissions):
         col_f1, col_f2 = st.columns([2, 1])
@@ -1391,7 +1724,7 @@ elif page == "Submissions":
                 a1, a2, a3 = st.columns(3)
                 with a1:
                     if st.button("Score", key=f"sc_{sub['id']}"):
-                        with st.spinner("Scoring with ForgeOS Rubric v2…"):
+                        with st.spinner("Scoring using ForgeOS Extensive Rubric v2…"):
                             time.sleep(0.8)
                             sc2 = ai_score_submission(sub, rubric)
                             idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
@@ -1405,13 +1738,15 @@ elif page == "Submissions":
                                 "scored_at":   sc2["scored_at"],
                                 "status":      "Scored",
                             })
+                            gate_note = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
+                            st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}")
                             st.rerun()
                 with a2:
                     cur_stage_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
                     at_last = cur_stage_idx >= len(STAGE_NAMES) - 1
                     if st.button("Advance", key=f"adv_{sub['id']}", disabled=at_last):
                         new_stage = STAGE_NAMES[cur_stage_idx + 1]
-                        with st.spinner(f"Advancing to {new_stage}…"):
+                        with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
                             time.sleep(0.5)
                             idx     = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                             summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
@@ -1420,6 +1755,7 @@ elif page == "Submissions":
                             st.session_state.submissions[idx]["stage"]         = new_stage
                             st.session_state.submissions[idx]["stage_summary"] = summary
                             st.session_state.submissions[idx]["stage_history"] = hist
+                            st.session_state.flash_msg = ("info", f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated")
                         st.rerun()
                 with a3:
                     if st.button("Delete", key=f"del_{sub['id']}"):
@@ -1577,6 +1913,19 @@ elif page == "Pipeline":
 
     st.markdown('<div class="page-content">', unsafe_allow_html=True)
 
+    # ── Flash message ─────────────────────────────────────────────────────────
+    if st.session_state.flash_msg:
+        ftype, fmsg = st.session_state.flash_msg
+        st.session_state.flash_msg = None
+        if ftype == "success":
+            st.success(fmsg)
+        elif ftype == "info":
+            st.info(fmsg)
+        elif ftype == "warning":
+            st.warning(fmsg)
+        else:
+            st.error(fmsg)
+
     subs = st.session_state.submissions
     stage_map = {s["name"]: [] for s in STAGES}
     for sub in subs:
@@ -1631,7 +1980,7 @@ elif page == "Pipeline":
                     btn_score, btn_adv = st.columns(2)
                     with btn_score:
                         if st.button("Score", key=f"pipe_sc_{sub['id']}"):
-                            with st.spinner("Scoring with ForgeOS Rubric v2…"):
+                            with st.spinner("Scoring using ForgeOS Extensive Rubric v2…"):
                                 time.sleep(0.8)
                                 sc2 = ai_score_submission(sub, rubric)
                                 idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
@@ -1645,11 +1994,13 @@ elif page == "Pipeline":
                                     "scored_at":   sc2["scored_at"],
                                     "status":      "Scored",
                                 })
+                                gate_note = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
+                                st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}")
                                 st.rerun()
                     with btn_adv:
                         if st.button("Advance →", key=f"pipe_adv_{sub['id']}", disabled=at_last):
                             new_stage = STAGE_NAMES[cur_idx + 1]
-                            with st.spinner(f"Advancing to {new_stage}…"):
+                            with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
                                 time.sleep(0.5)
                                 idx     = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
                                 summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
@@ -1658,6 +2009,7 @@ elif page == "Pipeline":
                                 st.session_state.submissions[idx]["stage"]         = new_stage
                                 st.session_state.submissions[idx]["stage_summary"] = summary
                                 st.session_state.submissions[idx]["stage_history"] = hist
+                                st.session_state.flash_msg = ("info", f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated")
                             st.rerun()
             else:
                 st.markdown('<div class="kanban-empty">No ideas</div>', unsafe_allow_html=True)
