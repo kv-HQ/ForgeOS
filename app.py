@@ -2094,13 +2094,110 @@ elif page == "Submissions":
                 n           = len(unscored)
 
                 # ── Live display slots ──────────────────────────────────────────
+                bulk_start_time     = time.time()
+                _completion_times_: list[float] = []
+                completed_ids_:     set[str] = set()
+
+                # Per-card state: id → {"name", "state": Pending/Scoring/Done, "score"}
+                card_states_: dict = {
+                    sub["id"]: {"name": sub["name"], "state": "Pending", "score": 0}
+                    for sub in unscored
+                }
+
                 prog_bar    = st.progress(0.0)
-                status_slot = st.empty()
+                dash_header = st.empty()
+                dash_grid   = st.empty()
 
                 # ── Thread-safe in-flight tracking ──────────────────────────────
                 # active_ids: IDs whose worker is currently executing (not queued)
                 active_ids  = set()
                 active_lock = threading.Lock()
+
+                def _render_bulk_dashboard_():
+                    """Re-render the full card grid and ETA header."""
+                    elapsed = time.time() - bulk_start_time
+                    n_done  = len(completed_ids_)
+                    n_left  = n - n_done
+                    if n_done > 0:
+                        avg_t   = elapsed / n_done
+                        eta_sec = int(avg_t * n_left)
+                        if eta_sec < 60:
+                            eta_str = f"{eta_sec}s remaining"
+                        else:
+                            m_part  = eta_sec // 60
+                            s_part  = eta_sec % 60
+                            eta_str = f"{m_part}m {s_part}s remaining"
+                    else:
+                        eta_str = "calculating…"
+
+                    dash_header.markdown(
+                        f'<div style="display:flex;align-items:center;gap:16px;padding:8px 0 2px;">'
+                        f'<span style="font-size:12px;color:#8b949e;">'
+                        f'<strong style="color:#e6edf3">{n_done}</strong> / {n} scored'
+                        f'</span>'
+                        f'<span style="font-size:12px;color:#30363d;">|</span>'
+                        f'<span style="font-size:12px;color:#8b949e;">&#9201; {eta_str}</span>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                    with active_lock:
+                        scoring_ids = set(active_ids)
+
+                    cards_html = ""
+                    for cid, cs in card_states_.items():
+                        raw_name  = cs["name"]
+                        name_disp = (raw_name[:20] + "…") if len(raw_name) > 20 else raw_name
+                        state     = "Scoring" if cid in scoring_ids else cs["state"]
+
+                        if state == "Done":
+                            sc_val = cs["score"]
+                            color  = score_hex(sc_val)
+                            badge  = (
+                                f'<span style="font-size:10px;font-weight:600;color:{color};'
+                                f'background:rgba(63,185,80,0.1);padding:2px 7px;border-radius:20px;">Done</span>'
+                            )
+                            score_disp = (
+                                f'<div style="font-size:24px;font-weight:700;color:{color};'
+                                f'line-height:1.1;margin-top:4px;">{sc_val}</div>'
+                            )
+                            card_bg = "rgba(63,185,80,0.04)"
+                            border  = color
+                        elif state == "Scoring":
+                            badge  = (
+                                '<span style="font-size:10px;font-weight:600;color:#58a6ff;'
+                                'background:rgba(31,111,235,0.15);padding:2px 7px;border-radius:20px;">Scoring…</span>'
+                            )
+                            score_disp = '<div style="font-size:11px;color:#6e7681;margin-top:4px;">in progress</div>'
+                            card_bg    = "rgba(31,111,235,0.05)"
+                            border     = "#1f6feb"
+                        else:
+                            badge  = (
+                                '<span style="font-size:10px;font-weight:600;color:#6e7681;'
+                                'background:#21262d;padding:2px 7px;border-radius:20px;">Pending</span>'
+                            )
+                            score_disp = '<div style="font-size:11px;color:#484f58;margin-top:4px;">—</div>'
+                            card_bg    = "#0d1117"
+                            border     = "#30363d"
+
+                        cards_html += (
+                            f'<div style="background:{card_bg};border:1px solid {border};border-radius:8px;'
+                            f'padding:10px 12px;min-height:80px;display:flex;flex-direction:column;'
+                            f'justify-content:space-between;">'
+                            f'<div style="font-size:12px;color:#e6edf3;font-weight:500;'
+                            f'line-height:1.3;word-break:break-word;">{name_disp}</div>'
+                            f'<div style="margin-top:6px;">{badge}{score_disp}</div>'
+                            f'</div>'
+                        )
+
+                    dash_grid.markdown(
+                        f'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));'
+                        f'gap:8px;padding:4px 0 10px;">{cards_html}</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                # Initial render — all Pending
+                _render_bulk_dashboard_()
 
                 # stop_event: set by the first worker that hits a 429/rate-limit;
                 # subsequent workers check this before making their LLM call and
@@ -2192,34 +2289,14 @@ elif page == "Submissions":
 
                         completed += 1
                         prog_bar.progress(completed / n)
-
-                        # ── Live status: accurately read in-flight IDs ─────────
-                        done_name = id_to_name[sub_id]
-                        with active_lock:
-                            currently_active = set(active_ids)
-                        in_flight = [id_to_name[i] for i in currently_active if i in id_to_name]
-                        flight_html = ""
-                        if in_flight:
-                            names_str   = ", ".join(f"<em>{nm}</em>" for nm in in_flight[:4])
-                            more        = f" +{len(in_flight)-4} more" if len(in_flight) > 4 else ""
-                            flight_html = f'<span style="color:#6e7681;"> · in-flight: {names_str}{more}</span>'
-                        status_slot.markdown(
-                            f'<div style="font-size:12px;color:#3fb950;padding:4px 0;">'
-                            f'✓ <strong style="color:#e6edf3">{done_name}</strong> scored '
-                            f'<span style="color:#8b949e;">({completed}/{n})</span>'
-                            f'{flight_html}</div>',
-                            unsafe_allow_html=True,
-                        )
+                        completed_ids_.add(sub_id)
+                        card_states_[sub_id]["state"] = "Done"
+                        card_states_[sub_id]["score"] = sc["overall"]
+                        _render_bulk_dashboard_()
 
                 # ── Sequential fallback for any still-New after rate-limit ──────
                 still_new = [s for s in st.session_state.submissions if s["status"] == "New"]
                 if still_new:
-                    status_slot.markdown(
-                        f'<div style="font-size:12px;color:#d29922;padding:4px 0;">'
-                        f'⚠ Rate limit hit — finishing {len(still_new)} remaining idea(s) sequentially '
-                        f'with Simulated scoring…</div>',
-                        unsafe_allow_html=True,
-                    )
                     for sub in still_new:
                         sc = ai_score_submission(sub, rubric_snap)
                         idx = next(
@@ -2238,9 +2315,14 @@ elif page == "Submissions":
                         })
                         completed += 1
                         prog_bar.progress(completed / n)
+                        completed_ids_.add(sub["id"])
+                        card_states_[sub["id"]]["state"] = "Done"
+                        card_states_[sub["id"]]["score"] = sc["overall"]
+                        _render_bulk_dashboard_()
 
                 # ── Summary ────────────────────────────────────────────────────
-                status_slot.empty()
+                dash_header.empty()
+                dash_grid.empty()
                 prog_bar.progress(1.0)
                 if rate_limit_hits:
                     st.warning(
