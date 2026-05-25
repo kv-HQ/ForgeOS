@@ -1,6 +1,7 @@
 import streamlit as st
 import json
 import os
+import re
 import uuid
 import random
 import time
@@ -76,9 +77,15 @@ st.markdown("""
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 /* ══ Reset & base ══════════════════════════════════════════ */
-*, html, body, [class*="css"] {
+*, *::before, *::after { box-sizing: border-box; }
+html, body, .stApp,
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stSidebar"] label,
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] [data-baseweb="select"] {
     font-family: 'Inter', -apple-system, sans-serif !important;
-    box-sizing: border-box;
 }
 .stApp { background: #0d1117; }
 
@@ -564,6 +571,8 @@ hr { border-color: #6e7681 !important; margin: 12px 0 !important; }
 # ─── Design System v2 — Premium Redesign ─────────────────────────────────────
 st.markdown("""
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,400,0,0&display=swap');
+
 /* ══ Design Tokens ══════════════════════════════════════════════ */
 :root {
   --bg:            #07101f;
@@ -598,11 +607,38 @@ st.markdown("""
 }
 
 /* ══ Base overrides ═════════════════════════════════════════════ */
-*, html, body, [class*="css"] {
+*, *::before, *::after { box-sizing: border-box; }
+html, body, .stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li,
+[data-testid="stSidebar"] label,
+[data-testid="stTextInput"] input,
+[data-testid="stTextArea"] textarea,
+[data-testid="stSelectbox"] [data-baseweb="select"],
+.stButton > button {
   font-family: 'Inter', -apple-system, sans-serif !important;
   -webkit-font-smoothing: antialiased !important;
 }
 .stApp { background: var(--bg) !important; }
+
+/* Streamlit Material Symbols — must not inherit Inter (shows "arrowright" text) */
+[data-testid="stIconMaterial"],
+[data-testid="stIconMaterial"] span {
+  font-family: "Material Symbols Rounded" !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  line-height: 1 !important;
+  -webkit-font-feature-settings: "liga" !important;
+  font-feature-settings: "liga" !important;
+}
+[data-testid="stExpander"] details summary [data-testid="stIconMaterial"],
+[data-testid="stSelectbox"] [data-testid="stIconMaterial"],
+[data-testid="stDateInput"] [data-testid="stIconMaterial"] {
+  font-family: "Material Symbols Rounded" !important;
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -936,6 +972,19 @@ st.markdown("""
   transition: all var(--dur) var(--ease) !important;
 }
 .crit-card:hover { border-color: rgba(59,130,246,0.30) !important; box-shadow: var(--shadow-md) !important; }
+.crit-breakdown-row {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 14px 16px; margin-bottom: 10px;
+  box-shadow: var(--shadow-sm);
+}
+.crit-breakdown-row:hover { border-color: rgba(59,130,246,0.28); }
+.crit-detail-md h2 { font-size: 15px !important; color: var(--text-1) !important; margin: 1.1em 0 0.45em !important; }
+.crit-detail-md h3 { font-size: 13px !important; color: var(--accent) !important; margin: 0.9em 0 0.35em !important; }
+.crit-detail-md p, .crit-detail-md li { font-size: 13px !important; color: var(--text-2) !important; line-height: 1.65 !important; }
+.crit-detail-md blockquote {
+  border-left: 3px solid var(--accent); margin: 8px 0; padding: 6px 12px;
+  background: rgba(59,130,246,0.06); color: var(--text-2) !important; font-size: 12px !important;
+}
 .crit-name { font-size: 13px !important; font-weight: 600 !important; color: var(--text-1) !important; }
 .crit-desc { font-size: 12px !important; color: var(--text-3) !important; line-height: 1.55 !important; }
 .crit-weight {
@@ -991,6 +1040,532 @@ hr { border-color: var(--border) !important; margin: 14px 0 !important; }
 [data-testid="stMarkdownContainer"] p { font-size: 13px; color: var(--text-2); line-height: 1.6; }
 [data-testid="stCheckbox"] span { color: var(--text-2) !important; font-size: 13px !important; }
 [data-testid="stFileUploader"] label { color: var(--text-3) !important; }
+
+/* ══ Submissions table rows ═══════════════════════════════════════ */
+.sub-table-header {
+  padding: 8px 4px 10px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.sub-table-th {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.09em; color: var(--text-3);
+}
+.sub-row-card {
+  background: var(--card); border: 1px solid var(--border-soft);
+  border-radius: var(--r-sm); padding: 10px 8px 8px; margin-bottom: 8px;
+}
+.sub-row-card:hover { border-color: var(--border); }
+.sub-cell-empty { color: var(--text-3); font-size: 13px; }
+.sub-actions [data-testid="column"] { padding: 0 2px !important; }
+.sub-actions .stButton > button {
+  width: 100% !important; min-height: 32px !important; padding: 4px 6px !important;
+  font-size: 11px !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"] {
+  margin-bottom: 10px !important;
+  background: var(--card) !important;
+  border-color: var(--border-soft) !important;
+  border-radius: var(--r-sm) !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+  border-color: var(--border) !important;
+}
+
+/* ══ Investment memo preview ══════════════════════════════════════ */
+.memo-preview-wrap {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 20px 24px;
+  max-height: 52vh;
+  overflow-y: auto;
+  margin: 12px 0 16px 0;
+  box-shadow: var(--shadow-sm);
+}
+.memo-preview-wrap h1 { font-size: 20px !important; color: var(--text-1) !important; margin-top: 0 !important; }
+.memo-preview-wrap h2 { font-size: 15px !important; color: var(--text-1) !important; margin-top: 1.2em !important; }
+.memo-preview-wrap h3 { font-size: 13px !important; color: var(--text-2) !important; }
+.memo-preview-wrap p, .memo-preview-wrap li { font-size: 13px !important; color: var(--text-2) !important; line-height: 1.65 !important; }
+.memo-preview-wrap strong { color: var(--text-1) !important; }
+.memo-source-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-3); margin-bottom: 8px;
+}
+
+/* ══ Shortlist folder cards ═══════════════════════════════════════ */
+.shortlist-folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.shortlist-folder-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 18px 16px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--dur) var(--ease);
+  cursor: default;
+  position: relative;
+  overflow: hidden;
+}
+.shortlist-folder-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--shortlist-accent, var(--accent));
+  opacity: 0.85;
+}
+.shortlist-folder-card:hover {
+  border-color: rgba(59,130,246,0.35);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.shortlist-folder-icon {
+  font-size: 26px;
+  line-height: 1;
+  margin-bottom: 10px;
+  display: block;
+}
+.shortlist-folder-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+  line-height: 1.35;
+  margin-bottom: 10px;
+  min-height: 2.6em;
+}
+.shortlist-folder-count {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.shortlist-folder-count-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  margin-top: 4px;
+}
+.shortlist-back-link {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: inline-block;
+}
+
+/* ══ Landing page (Home) ════════════════════════════════════════════ */
+.landing-page-bg {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 20%, rgba(34,197,94,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 0% 60%, rgba(99,102,241,0.10) 0%, transparent 45%),
+    var(--bg) !important;
+}
+.landing-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 40px; border-bottom: 1px solid var(--border-soft);
+  background: rgba(7,16,31,0.85); backdrop-filter: blur(16px);
+  position: sticky; top: 0; z-index: 200;
+}
+.landing-nav-brand {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 18px; font-weight: 800; color: var(--text-1);
+  letter-spacing: -0.04em;
+}
+.landing-nav-badge {
+  font-size: 9px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--green);
+  background: var(--green-bg); border: 1px solid var(--green-border);
+  padding: 3px 8px; border-radius: 99px;
+}
+.landing-hero-section {
+  position: relative; overflow: hidden;
+  max-width: 1320px; margin: 0 auto;
+  padding: 20px 48px 16px;
+}
+.landing-hero-glow {
+  position: absolute; border-radius: 50%; pointer-events: none; filter: blur(80px);
+}
+.landing-hero-glow--blue {
+  width: 520px; height: 520px; top: -120px; left: -80px;
+  background: radial-gradient(circle, rgba(59,130,246,0.28) 0%, transparent 70%);
+}
+.landing-hero-glow--green {
+  width: 440px; height: 440px; top: 40px; right: -60px;
+  background: radial-gradient(circle, rgba(34,197,94,0.20) 0%, transparent 70%);
+}
+.landing-hero-glow--purple {
+  width: 320px; height: 320px; bottom: -40px; left: 35%;
+  background: radial-gradient(circle, rgba(99,102,241,0.14) 0%, transparent 70%);
+}
+.landing-hero-inner {
+  position: relative; z-index: 2;
+  display: grid; grid-template-columns: 1fr 1.15fr;
+  gap: 40px; align-items: center;
+}
+.landing-hero-copy { max-width: 560px; }
+.landing-hero-visual {
+  position: relative; padding: 8px 0 0;
+}
+.landing-hero-cta-bar {
+  max-width: 1280px; margin: 0 auto;
+  padding: 12px 40px 28px;
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; text-align: center;
+}
+.landing-cta-btn {
+  display: inline-block; padding: 12px 20px; border-radius: 10px;
+  border: 1px solid var(--border); color: var(--text-1) !important;
+  font-weight: 700; font-size: 14px; text-decoration: none !important;
+  transition: all 0.2s var(--ease); cursor: pointer;
+  background: transparent;
+}
+.landing-cta-btn:hover {
+  border-color: rgba(59,130,246,0.45) !important;
+  background: rgba(59,130,246,0.08) !important;
+  transform: translateY(-1px);
+}
+.landing-mock-wrap { position: relative; width: 100%; }
+.landing-hero-visual::before {
+  content: ""; position: absolute; inset: -20px -10px -10px -30px;
+  background: radial-gradient(ellipse at center, rgba(59,130,246,0.12) 0%, transparent 65%);
+  pointer-events: none; z-index: 0;
+}
+.landing-hero-visual > * { position: relative; z-index: 1; }
+.landing-hero-actions {
+  position: relative; z-index: 2;
+  max-width: 1320px; margin: 0 auto;
+  padding: 0 48px 28px;
+}
+.landing-hero-actions-btn-wrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; text-align: center; width: 100%;
+}
+section.main:has(.landing-nav) .landing-hero-actions [data-testid="column"]:last-child {
+  display: flex !important; justify-content: center !important;
+}
+.landing-hero-actions-btn-wrap .stButton,
+.landing-hero-actions-btn-wrap [data-testid="stButton"] {
+  margin: 0 auto !important; width: auto !important;
+}
+.landing-hero-actions-btn-wrap .stButton > button,
+.landing-hero-actions-btn-wrap [data-testid="stButton"] button {
+  width: auto !important;
+}
+.landing-hero-actions-row {
+  display: grid; grid-template-columns: 1.25fr 1fr; gap: 12px;
+}
+.landing-hero-micro {
+  font-size: 11px; color: var(--text-3); margin: 0; line-height: 1.5;
+  max-width: 420px; text-align: center;
+}
+.landing-hero {
+  max-width: 1280px; margin: 0 auto; padding: 56px 40px 40px;
+}
+.landing-eyebrow {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.14em; color: var(--green); margin-bottom: 16px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.landing-eyebrow-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px var(--green);
+}
+.landing-h1 {
+  font-size: clamp(36px, 5vw, 52px); font-weight: 800;
+  line-height: 1.08; letter-spacing: -0.04em; color: var(--text-1) !important;
+  margin: 0 0 20px 0;
+}
+section.main:has(.landing-nav) [data-testid="stMarkdownContainer"] h1.landing-h1 {
+  font-size: clamp(36px, 5vw, 52px) !important;
+  font-weight: 800 !important; color: var(--text-1) !important;
+  line-height: 1.08 !important; letter-spacing: -0.04em !important;
+  margin: 0 0 20px 0 !important; border: none !important; padding: 0 !important;
+}
+.landing-h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, #60a5fa 0%, #34d399 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.landing-sub {
+  font-size: 17px; line-height: 1.65; color: var(--text-2) !important;
+  max-width: 540px; margin: 0 0 8px 0;
+}
+section.main:has(.landing-nav) [data-testid="stMarkdownContainer"] p.landing-sub {
+  font-size: 17px !important; line-height: 1.65 !important;
+  color: var(--text-2) !important; max-width: 540px; margin: 0 0 8px 0 !important;
+}
+.landing-mockup-shell {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05),
+              0 0 60px rgba(59,130,246,0.08);
+  overflow: hidden;
+  transform: perspective(1400px) rotateY(-6deg) rotateX(3deg);
+  transition: transform 0.45s var(--ease), box-shadow 0.45s var(--ease);
+}
+.landing-mockup-shell:hover {
+  transform: perspective(1400px) rotateY(-2deg) rotateX(1deg);
+  box-shadow: 0 32px 100px rgba(0,0,0,0.60), 0 0 0 1px rgba(255,255,255,0.06),
+              0 0 80px rgba(34,197,94,0.12);
+}
+.landing-mock-float {
+  position: absolute; bottom: 28px; left: -24px; z-index: 10;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 14px;
+  box-shadow: var(--shadow-lg); min-width: 160px;
+}
+.landing-mock-float-lbl {
+  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 6px;
+}
+.landing-mock-float-val {
+  font-size: 22px; font-weight: 800; color: #22c55e; letter-spacing: -0.03em;
+}
+.landing-mock-float-sub { font-size: 10px; color: var(--text-2); margin-top: 2px; }
+.landing-mock-score-chip {
+  position: absolute; top: 20px; right: -18px; z-index: 10;
+  background: linear-gradient(135deg, #1e3a5f, #0f1e30);
+  border: 1px solid rgba(59,130,246,0.35); border-radius: 10px;
+  padding: 10px 12px; box-shadow: var(--shadow-md); text-align: center;
+}
+.landing-mock-score-chip-num {
+  font-size: 20px; font-weight: 800; color: #60a5fa; line-height: 1;
+}
+.landing-mock-score-chip-lbl {
+  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-3); margin-top: 4px;
+}
+.landing-mock-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 1px solid var(--border-soft);
+  background: rgba(11,22,38,0.9);
+}
+.landing-mock-dots { display: flex; gap: 5px; }
+.landing-mock-dot { width: 8px; height: 8px; border-radius: 50%; }
+.landing-mock-body { display: flex; min-height: 340px; }
+.landing-mock-sidebar {
+  width: 128px; border-right: 1px solid var(--border-soft);
+  padding: 12px 8px; background: rgba(7,16,31,0.55); flex-shrink: 0;
+}
+.landing-mock-nav-item {
+  font-size: 10px; font-weight: 600; color: var(--text-3);
+  padding: 7px 8px; border-radius: 6px; margin-bottom: 2px;
+}
+.landing-mock-nav-item.active {
+  background: var(--accent-dim); color: #60a5fa;
+  border: 1px solid rgba(59,130,246,0.25);
+}
+.landing-mock-main { flex: 1; padding: 12px 14px; min-width: 0; }
+.landing-mock-forge-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 0 10px; border-bottom: 1px solid var(--border-soft); margin-bottom: 10px;
+}
+.landing-mock-breadcrumb {
+  font-size: 9px; color: var(--text-3); font-weight: 500;
+}
+.landing-mock-breadcrumb span { color: var(--text-1); font-weight: 600; }
+.landing-mock-status {
+  font-size: 8px; color: var(--green); font-weight: 700;
+  display: flex; align-items: center; gap: 4px;
+}
+.landing-mock-status-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.landing-mock-kpis {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px;
+}
+.landing-mock-kpi {
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: 8px; padding: 10px;
+}
+.landing-mock-kpi-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--text-3); }
+.landing-mock-kpi-val { font-size: 18px; font-weight: 800; color: var(--text-1);
+  margin-top: 4px; letter-spacing: -0.03em; }
+.landing-mock-pipeline {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px;
+}
+.landing-mock-stage {
+  text-align: center; padding: 8px 4px; border-radius: 6px;
+  border: 1px solid var(--border-soft); background: var(--surface);
+  font-size: 8px; font-weight: 600; color: var(--text-3);
+}
+.landing-mock-stage-num {
+  font-size: 16px; font-weight: 800; display: block; margin-bottom: 2px;
+}
+.landing-mock-chart {
+  display: flex; align-items: flex-end; gap: 3px; height: 44px;
+  padding: 8px 10px; background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: 8px; margin-bottom: 10px;
+}
+.landing-mock-bar {
+  flex: 1; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #3b82f6, #1d4ed8);
+  opacity: 0.85;
+}
+.landing-mock-table {
+  width: 100%; border-collapse: collapse; font-size: 8px;
+}
+.landing-mock-table th {
+  text-align: left; padding: 5px 6px; font-size: 7px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-3);
+  border-bottom: 1px solid var(--border-soft);
+}
+.landing-mock-table td {
+  padding: 6px; color: var(--text-2); border-bottom: 1px solid var(--border-soft);
+}
+.landing-mock-table td:first-child { color: var(--text-3); font-weight: 600; }
+.landing-mock-table td:nth-child(2) { color: var(--text-1); font-weight: 500; }
+.landing-mock-badge {
+  display: inline-block; padding: 2px 5px; border-radius: 4px;
+  font-size: 7px; font-weight: 700;
+}
+.landing-mock-badge-green { background: rgba(34,197,94,0.15); color: #22c55e; }
+.landing-mock-badge-blue { background: rgba(59,130,246,0.15); color: #60a5fa; }
+.landing-mock-badge-amber { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.landing-mock-pipeline-hd {
+  font-size: 8px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.1em; color: var(--text-3); margin-bottom: 6px;
+}
+.landing-mock-kanban {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+}
+.landing-mock-k-col {
+  background: var(--surface); border: 1px solid var(--border-soft);
+  border-radius: 6px; padding: 5px; min-height: 52px;
+}
+.landing-mock-k-hd {
+  font-size: 7px; font-weight: 700; color: var(--text-3);
+  margin-bottom: 4px; padding-bottom: 3px; border-bottom: 2px solid;
+}
+.landing-mock-k-card {
+  background: var(--card); border: 1px solid var(--border-soft);
+  border-radius: 4px; padding: 4px 5px; margin-bottom: 3px;
+  font-size: 7px; font-weight: 600; color: var(--text-1); line-height: 1.3;
+}
+.landing-mock-k-score {
+  font-size: 6px; font-weight: 700; margin-top: 2px;
+}
+@media (max-width: 960px) {
+  .landing-hero-inner { grid-template-columns: 1fr; gap: 32px; }
+  .landing-hero-section { padding: 40px 24px 16px; }
+  .landing-hero-cta-bar { padding: 12px 24px 24px; }
+  .landing-hero-actions { padding: 0 24px 32px; }
+  .landing-mock-float, .landing-mock-score-chip { display: none; }
+}
+.landing-benefits {
+  max-width: 1280px; margin: 0 auto; padding: 20px 40px 48px;
+}
+.landing-benefits-hd {
+  text-align: center; font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--text-3); margin-bottom: 28px;
+}
+.landing-benefit-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 24px 20px; height: 100%;
+  box-shadow: var(--shadow-sm); transition: all var(--dur) var(--ease);
+}
+.landing-benefit-card:hover {
+  border-color: rgba(59,130,246,0.35); transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+.landing-benefit-icon {
+  font-size: 28px; margin-bottom: 12px; display: block;
+}
+.landing-benefit-title {
+  font-size: 15px; font-weight: 700; color: var(--text-1); margin-bottom: 8px;
+}
+.landing-benefit-desc {
+  font-size: 13px; line-height: 1.6; color: var(--text-2); margin: 0;
+}
+.landing-footer {
+  border-top: 1px solid var(--border-soft);
+  padding: 28px 40px 36px; text-align: center;
+  background: rgba(7,16,31,0.6);
+}
+.landing-footer p { font-size: 12px; color: var(--text-3); margin: 4px 0; }
+section.main:has(.landing-nav) [data-testid="column"] { padding-top: 0; }
+.landing-page [data-testid="column"] { padding-top: 0; }
+section.main:has(.landing-nav) [data-testid="stButton"] button {
+  border-radius: 10px !important; font-weight: 700 !important;
+  font-size: 14px !important; padding: 12px 20px !important;
+  transition: all 0.2s var(--ease) !important;
+}
+section.main:has(.landing-nav) [data-testid="stButton"] button[kind="primary"],
+section.main:has(.landing-nav) [data-testid="stButton"] button[data-testid="baseButton-primary"] {
+  background: linear-gradient(135deg, #2563eb 0%, #059669 100%) !important;
+  border: none !important; box-shadow: 0 4px 20px rgba(37,99,235,0.35) !important;
+}
+section.main:has(.landing-nav) [data-testid="stButton"] button[kind="primary"]:hover,
+section.main:has(.landing-nav) [data-testid="stButton"] button[data-testid="baseButton-primary"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 6px 28px rgba(37,99,235,0.45) !important;
+}
+section.main:has(.landing-nav) [data-testid="stButton"] button[kind="secondary"],
+section.main:has(.landing-nav) [data-testid="stButton"] button[data-testid="baseButton-secondary"] {
+  background: transparent !important;
+  border: 1px solid var(--border) !important; color: var(--text-1) !important;
+}
+section.main:has(.landing-nav) .landing-hero-actions [data-testid="stButton"] {
+  width: auto !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+section.main:has(.landing-nav) .landing-hero-actions-btn-wrap [data-testid="stButton"] button {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-1) !important;
+  box-shadow: none !important;
+  width: auto !important;
+}
+section.main:has(.landing-nav) .landing-hero-actions-btn-wrap [data-testid="stButton"] button:hover {
+  border-color: rgba(59,130,246,0.45) !important;
+  background: rgba(59,130,246,0.08) !important;
+  transform: translateY(-1px) !important;
+}
+.stApp:has(.landing-nav) {
+  padding-top: 0 !important;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(59,130,246,0.22) 0%, transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 20%, rgba(34,197,94,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse 50% 30% at 0% 60%, rgba(99,102,241,0.10) 0%, transparent 45%),
+    var(--bg) !important;
+}
+div[data-testid="stAppViewContainer"]:has(.landing-nav) {
+  padding-top: 0 !important;
+}
+div[data-testid="stAppViewContainer"]:has(.landing-nav) .block-container,
+section.main:has(.landing-nav) .block-container {
+  padding: 0 !important; max-width: 100% !important;
+}
+section.main:has(.landing-nav) > div {
+  padding-top: 0 !important;
+}
+section.main:has(.landing-nav) [data-testid="stMainBlockContainer"] {
+  padding-top: 0 !important;
+  gap: 0 !important;
+}
+section.main:has(.landing-nav) [data-testid="stVerticalBlock"] {
+  gap: 0.25rem !important;
+}
+div[data-testid="stAppViewContainer"]:has(.landing-nav) [data-testid="stSidebar"] {
+  display: none !important;
+}
+div[data-testid="stAppViewContainer"]:has(.landing-nav) header[data-testid="stHeader"] {
+  background: transparent !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -1012,11 +1587,253 @@ if "next_id" not in st.session_state:
     st.session_state.next_id = 1001
 if "flash_msg" not in st.session_state:
     st.session_state.flash_msg = None
+if "bulk_upload_row_ids" not in st.session_state:
+    st.session_state.bulk_upload_row_ids = [0]
+if "bulk_upload_next_row_id" not in st.session_state:
+    st.session_state.bulk_upload_next_row_id = 1
 if "scoring_mode" not in st.session_state:
     st.session_state.scoring_mode = "Simulated"
 if "session_llm_key" not in st.session_state:
     # Load from disk on first run so key survives page refreshes
     st.session_state.session_llm_key = _load_saved_key()
+
+# ─── Shortlist (session-persistent category folders) ─────────────────────────
+SHORTLIST_CATEGORIES = [
+    "Clothing & Fashion",
+    "Food & Beverage / CPG",
+    "Automotive Parts",
+    "Consumer Hardware",
+    "Sustainable Packaging",
+    "Furniture & Home Goods",
+    "Other",
+]
+
+# Visual metadata for folder cards on the Shortlist page
+SHORTLIST_CATEGORY_META = {
+    "Clothing & Fashion":       {"icon": "👗", "color": "#a78bfa"},
+    "Food & Beverage / CPG":    {"icon": "🥗", "color": "#22c55e"},
+    "Automotive Parts":         {"icon": "🚗", "color": "#f59e0b"},
+    "Consumer Hardware":        {"icon": "🔌", "color": "#3b82f6"},
+    "Sustainable Packaging":    {"icon": "📦", "color": "#10b981"},
+    "Furniture & Home Goods":   {"icon": "🪑", "color": "#d97706"},
+    "Other":                    {"icon": "📁", "color": "#8b949e"},
+}
+
+if "shortlist" not in st.session_state:
+    # category name → ordered list of submission IDs
+    if "favorites" in st.session_state:
+        # Migrate legacy session keys from earlier builds
+        st.session_state.shortlist = st.session_state.favorites
+        del st.session_state["favorites"]
+    else:
+        st.session_state.shortlist = {cat: [] for cat in SHORTLIST_CATEGORIES}
+if "shortlist_pick_sub_id" not in st.session_state:
+    # When set, the category-picker dialog is shown for this submission
+    st.session_state.shortlist_pick_sub_id = None
+    if "fav_pick_sub_id" in st.session_state and st.session_state.fav_pick_sub_id:
+        st.session_state.shortlist_pick_sub_id = st.session_state.fav_pick_sub_id
+        del st.session_state["fav_pick_sub_id"]
+if "shortlist_view_category" not in st.session_state:
+    # Drill-down folder on the Shortlist page (None = grid view)
+    st.session_state.shortlist_view_category = None
+    if "favorites_view_category" in st.session_state:
+        st.session_state.shortlist_view_category = st.session_state.favorites_view_category
+        del st.session_state["favorites_view_category"]
+
+# Investment memos: submission_id → {markdown, generated_at, source}
+if "investment_memos" not in st.session_state:
+    st.session_state.investment_memos = {}
+if "memo_sub_id" not in st.session_state:
+    st.session_state.memo_sub_id = None
+if "memo_needs_generate" not in st.session_state:
+    st.session_state.memo_needs_generate = False
+if "memo_force_regenerate" not in st.session_state:
+    st.session_state.memo_force_regenerate = False
+
+# Criterion deep-dive cache: "{sub_id}::{criterion}" → {markdown, source, warning}
+# Active modal: criterion_deep_dive_active = "deep_dive_{sub_id}_{criterion_slug}"
+if "criterion_detail_cache" not in st.session_state:
+    st.session_state.criterion_detail_cache = {}
+if "criterion_deep_dive_active" not in st.session_state:
+    st.session_state.criterion_deep_dive_active = None
+if "criterion_deep_dive_sub_id" not in st.session_state:
+    st.session_state.criterion_deep_dive_sub_id = None
+if "criterion_deep_dive_criterion" not in st.session_state:
+    st.session_state.criterion_deep_dive_criterion = None
+if "criterion_detail_force" not in st.session_state:
+    st.session_state.criterion_detail_force = False
+if "_tracked_nav_page" not in st.session_state:
+    st.session_state._tracked_nav_page = None
+if "_tracked_sl_view" not in st.session_state:
+    st.session_state._tracked_sl_view = None
+
+# Landing / navigation (Home is default entry point)
+NAV_OPTIONS = ["Home", "Dashboard", "Submissions", "Shortlist", "Pipeline", "Rubric Settings"]
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "Home"
+
+# Landing CTA link (?dashboard=1) → enter app
+if st.query_params.get("dashboard") == "1":
+    st.session_state.nav_page = "Dashboard"
+    st.query_params.clear()
+    st.rerun()
+
+
+def _ensure_shortlist_buckets():
+    """Guarantee every category key exists (e.g. after adding new categories)."""
+    for cat in SHORTLIST_CATEGORIES:
+        st.session_state.shortlist.setdefault(cat, [])
+
+
+def _shortlist_category_for(sub_id: str):
+    """Return the category name if submission is on the shortlist, else None."""
+    _ensure_shortlist_buckets()
+    for cat, ids in st.session_state.shortlist.items():
+        if sub_id in ids:
+            return cat
+    return None
+
+
+def _is_shortlisted(sub_id: str) -> bool:
+    return _shortlist_category_for(sub_id) is not None
+
+
+def _add_to_shortlist(sub_id: str, category: str):
+    """Move submission into a category folder (removes from any prior folder)."""
+    _ensure_shortlist_buckets()
+    if category not in SHORTLIST_CATEGORIES:
+        category = "Other"
+    _remove_from_shortlist(sub_id)
+    ids = st.session_state.shortlist[category]
+    if sub_id not in ids:
+        ids.append(sub_id)
+
+
+def _remove_from_shortlist(sub_id: str):
+    """Remove submission from all shortlist folders."""
+    _ensure_shortlist_buckets()
+    for cat in SHORTLIST_CATEGORIES:
+        ids = st.session_state.shortlist.get(cat, [])
+        if sub_id in ids:
+            ids.remove(sub_id)
+
+
+def _shortlist_total_count() -> int:
+    _ensure_shortlist_buckets()
+    return sum(len(st.session_state.shortlist.get(cat, [])) for cat in SHORTLIST_CATEGORIES)
+
+
+def _submissions_in_shortlist_category(category: str) -> list:
+    """Return full submission dicts for IDs saved in a folder, in save order."""
+    _ensure_shortlist_buckets()
+    id_list = st.session_state.shortlist.get(category, [])
+    by_id = {s["id"]: s for s in st.session_state.submissions}
+    return [by_id[sid] for sid in id_list if sid in by_id]
+
+
+def _purge_shortlist_orphans():
+    """Drop shortlist IDs whose submissions were deleted."""
+    _ensure_shortlist_buckets()
+    live = {s["id"] for s in st.session_state.submissions}
+    for cat in SHORTLIST_CATEGORIES:
+        st.session_state.shortlist[cat] = [
+            sid for sid in st.session_state.shortlist.get(cat, []) if sid in live
+        ]
+
+
+def _shortlist_category_dialog_body():
+    """Shared body for the shortlist category picker (modal or inline fallback)."""
+    sub_id = st.session_state.get("shortlist_pick_sub_id")
+    if not sub_id:
+        return
+
+    sub = next((s for s in st.session_state.submissions if s["id"] == sub_id), None)
+    if not sub:
+        st.warning("Submission not found — it may have been deleted.")
+        if st.button("Close", use_container_width=True):
+            st.session_state.shortlist_pick_sub_id = None
+            st.rerun()
+        return
+
+    st.markdown(
+        f'<div style="font-size:15px;font-weight:600;color:#e6edf3;margin-bottom:4px;">'
+        f'{_esc(sub["name"])}</div>'
+        f'<div style="font-size:11px;color:#8b949e;margin-bottom:16px;">{_esc(sub_id)}</div>',
+        unsafe_allow_html=True,
+    )
+
+    current = _shortlist_category_for(sub_id)
+    default_idx = (
+        SHORTLIST_CATEGORIES.index(current) if current in SHORTLIST_CATEGORIES else 0
+    )
+
+    category = st.selectbox(
+        "Category / folder",
+        SHORTLIST_CATEGORIES,
+        index=default_idx,
+        help="Organize saved ideas into industry folders for quick review.",
+    )
+
+    meta = SHORTLIST_CATEGORY_META.get(category, SHORTLIST_CATEGORY_META["Other"])
+    st.markdown(
+        f'<div style="font-size:12px;color:#8b949e;margin:8px 0 16px 0;">'
+        f'{meta["icon"]} Saved ideas appear under <strong style="color:{meta["color"]};">'
+        f'{_esc(category)}</strong> on the Shortlist page.</div>',
+        unsafe_allow_html=True,
+    )
+
+    btn_save, btn_remove, btn_cancel = st.columns(3)
+    with btn_save:
+        if st.button("Save", type="primary", use_container_width=True):
+            _add_to_shortlist(sub_id, category)
+            st.session_state.shortlist_pick_sub_id = None
+            st.session_state.flash_msg = (
+                "success",
+                f"Added '{sub['name']}' to Shortlist · {category}",
+            )
+            st.rerun()
+    with btn_remove:
+        if st.button(
+            "Remove",
+            use_container_width=True,
+            disabled=not current,
+            help="Remove from all shortlist folders",
+        ):
+            _remove_from_shortlist(sub_id)
+            st.session_state.shortlist_pick_sub_id = None
+            st.session_state.flash_msg = (
+                "info",
+                f"Removed '{sub['name']}' from Shortlist",
+            )
+            st.rerun()
+    with btn_cancel:
+        if st.button("Cancel", use_container_width=True):
+            st.session_state.shortlist_pick_sub_id = None
+            st.rerun()
+
+
+if hasattr(st, "dialog"):
+    @st.dialog("Shortlist")
+    def _shortlist_category_dialog():
+        """Modal: pick a category folder for the submission in shortlist_pick_sub_id."""
+        _shortlist_category_dialog_body()
+else:
+    def _shortlist_category_dialog():
+        """Inline fallback when st.dialog is unavailable."""
+        st.markdown("#### Shortlist")
+        _shortlist_category_dialog_body()
+
+
+def _maybe_open_shortlist_dialog():
+    """Open the category picker when shortlist_pick_sub_id is set."""
+    if not st.session_state.get("shortlist_pick_sub_id"):
+        return
+    if hasattr(st, "dialog"):
+        _shortlist_category_dialog()
+    else:
+        with st.container(border=True):
+            _shortlist_category_dialog_body()
+
 
 STAGES = rubric.get("pipeline_stages", [
     {"id": 1, "name": "Intake",       "color": "#6e40c9"},
@@ -1068,6 +1885,599 @@ def forge_badge(sub):
     if score > 0:
         return "Needs Work",  "#8b949e", "#1c2128"
     return None, None, None
+
+def _esc(text) -> str:
+    """Escape text for safe embedding in HTML markdown."""
+    return _html.escape(str(text)) if text is not None else ""
+
+
+def _score_cell_html(val) -> str:
+    if val and float(val) > 0:
+        bc = score_badge_class(float(val))
+        display = int(val) if float(val) == int(float(val)) else val
+        return f'<span class="badge-score {bc}">{display}</span>'
+    return '<span class="sub-cell-empty">—</span>'
+
+
+def _status_pill_html(status: str) -> str:
+    pc = pill_class(status)
+    return f'<span class="pill {pc}">{_esc(status)}</span>'
+
+
+def _ai_badge_html(sub) -> str:
+    blabel, bcolor, bbg = forge_badge(sub)
+    if not blabel:
+        return '<span class="sub-cell-empty">—</span>'
+    return (
+        f'<span style="font-size:10px;font-weight:700;color:{bcolor};'
+        f'background:{bbg};border:1px solid {bcolor}44;'
+        f'border-radius:4px;padding:2px 7px;white-space:nowrap;">'
+        f'{_esc(blabel)}</span>'
+    )
+
+
+def _stage_label_html(stage_name: str) -> str:
+    sc = next((s["color"] for s in STAGES if s["name"] == stage_name), "#8b949e")
+    return (
+        f'<span style="font-size:11px;font-weight:600;color:{sc};">'
+        f'● {_esc(stage_name)}</span>'
+    )
+
+
+_SUB_TABLE_COLS = [1.0, 2.3, 0.85, 0.85, 0.85, 1.15, 1.2, 1.2, 5.0]
+_SUB_TABLE_HEADERS = [
+    "ID", "Idea Name", "Overall", "Innov.", "Feas.",
+    "Status", "AI Badge", "Stage", "Actions",
+]
+
+
+def _render_submissions_table_header():
+    hd = st.columns(_SUB_TABLE_COLS)
+    for col, label in zip(hd, _SUB_TABLE_HEADERS):
+        col.markdown(
+            f'<div class="sub-table-th">{label}</div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _render_submission_table_row(
+    sub,
+    rubric_data,
+    *,
+    key_prefix: str = "sub",
+    show_shortlist: bool = True,
+    show_remove_shortlist: bool = False,
+):
+    """
+    One bordered row: data cells, action buttons, optional score breakdown.
+
+    key_prefix — unique Streamlit widget prefix (submissions vs shortlist views).
+    show_shortlist — show the ⭐ Shortlist button (Submissions page).
+    show_remove_shortlist — show Remove from Shortlist (Shortlist category view).
+    """
+    sid = sub["id"]
+    shortlist_cat = _shortlist_category_for(sid)
+
+    with st.container(border=True):
+        row = st.columns(_SUB_TABLE_COLS)
+
+        with row[0]:
+            st.markdown(f'<span class="forge-id">{_esc(sid)}</span>', unsafe_allow_html=True)
+
+        with row[1]:
+            shortlist_badge = ""
+            if shortlist_cat:
+                meta = SHORTLIST_CATEGORY_META.get(shortlist_cat, SHORTLIST_CATEGORY_META["Other"])
+                shortlist_badge = (
+                    f'<br><span style="font-size:10px;font-weight:600;color:{meta["color"]};">'
+                    f'⭐ Shortlist · {_esc(shortlist_cat)}</span>'
+                )
+            st.markdown(
+                f'<span style="font-size:13px;color:var(--text-1);font-weight:500;">'
+                f'{_esc(sub["name"])}</span>'
+                f'<br><span style="font-size:11px;color:var(--text-3);">'
+                f'{_esc(sub.get("file_type", ""))} · {_esc(sub.get("submitted_at", ""))}</span>'
+                f'{shortlist_badge}',
+                unsafe_allow_html=True,
+            )
+
+        for col, field in zip(row[2:5], ("overall", "innovation", "feasibility")):
+            col.markdown(_score_cell_html(sub.get(field, 0)), unsafe_allow_html=True)
+
+        with row[5]:
+            st.markdown(_status_pill_html(sub["status"]), unsafe_allow_html=True)
+
+        with row[6]:
+            st.markdown(_ai_badge_html(sub), unsafe_allow_html=True)
+
+        with row[7]:
+            st.markdown(_stage_label_html(sub.get("stage", "")), unsafe_allow_html=True)
+
+        with row[8]:
+            is_scored = bool(sub.get("categories"))
+            n_act = 5 if is_scored else 4
+            act_cols = st.columns(n_act, gap="small")
+            ai = 0
+            with act_cols[ai]:
+                if st.button("Score", key=f"{key_prefix}_sc_{sid}", use_container_width=True):
+                    _close_criterion_detail_dialog()
+                    mode_label = st.session_state.get("scoring_mode", "Simulated")
+                    spinner_txt = f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"
+                    with st.spinner(spinner_txt):
+                        if mode_label == "Simulated":
+                            time.sleep(0.8)
+                        sc2, warn2 = route_scoring(sub, rubric_data)
+                        idx = next(
+                            i for i, s in enumerate(st.session_state.submissions)
+                            if s["id"] == sub["id"]
+                        )
+                        st.session_state.submissions[idx].update({
+                            "overall":     sc2["overall"],
+                            "innovation":  sc2["innovation"],
+                            "feasibility": sc2["feasibility"],
+                            "categories":  sc2["categories"],
+                            "auto_reject": sc2["auto_reject"],
+                            "high_risk":   sc2["high_risk"],
+                            "scored_at":   sc2["scored_at"],
+                            "status":      "Scored",
+                        })
+                        st.session_state.investment_memos.pop(sid, None)
+                        _clear_criterion_detail_cache(sid)
+                        _close_criterion_deep_dives_for_submission(sid)
+                        gate_note = (
+                            " · Auto-Reject gate triggered" if sc2["auto_reject"]
+                            else (" · High-Risk flag raised" if sc2["high_risk"] else "")
+                        )
+                        fallback_note = f" · ⚠ {warn2}" if warn2 else ""
+                        st.session_state.flash_msg = (
+                            "success",
+                            f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100"
+                            f"{gate_note}{fallback_note}",
+                        )
+                        st.rerun()
+            ai += 1
+            with act_cols[ai]:
+                cur_stage_idx = (
+                    STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
+                )
+                at_last = cur_stage_idx >= len(STAGE_NAMES) - 1
+                if st.button(
+                    "Advance",
+                    key=f"{key_prefix}_adv_{sid}",
+                    disabled=at_last,
+                    use_container_width=True,
+                ):
+                    new_stage = STAGE_NAMES[cur_stage_idx + 1]
+                    with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
+                        time.sleep(0.5)
+                        idx = next(
+                            i for i, s in enumerate(st.session_state.submissions)
+                            if s["id"] == sub["id"]
+                        )
+                        summary = generate_stage_summary(
+                            st.session_state.submissions[idx], new_stage
+                        )
+                        hist = st.session_state.submissions[idx].get("stage_history", [])
+                        hist.append({
+                            "stage": new_stage,
+                            "moved_at": datetime.now().strftime("%Y-%m-%d"),
+                        })
+                        st.session_state.submissions[idx]["stage"] = new_stage
+                        st.session_state.submissions[idx]["stage_summary"] = summary
+                        st.session_state.submissions[idx]["stage_history"] = hist
+                        st.session_state.flash_msg = (
+                            "info",
+                            f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated",
+                        )
+                        st.rerun()
+            ai += 1
+            if is_scored:
+                with act_cols[ai]:
+                    if st.button(
+                        "📄 Memo",
+                        key=f"{key_prefix}_memo_{sid}",
+                        use_container_width=True,
+                        help="Generate investor-ready executive summary",
+                    ):
+                        _close_criterion_detail_dialog()
+                        st.session_state.memo_sub_id = sid
+                        if sid not in st.session_state.investment_memos:
+                            st.session_state.memo_needs_generate = True
+                        st.rerun()
+                ai += 1
+            with act_cols[ai]:
+                if show_remove_shortlist:
+                    if st.button(
+                        "Remove from Shortlist",
+                        key=f"{key_prefix}_rmsl_{sid}",
+                        use_container_width=True,
+                        help="Remove this idea from the Shortlist",
+                    ):
+                        _remove_from_shortlist(sid)
+                        st.session_state.flash_msg = (
+                            "info",
+                            f"Removed '{sub['name']}' from Shortlist",
+                        )
+                        st.rerun()
+                elif show_shortlist:
+                    sl_btn_label = "⭐ Shortlisted" if shortlist_cat else "⭐ Shortlist"
+                    sl_help = (
+                        f"On Shortlist under {shortlist_cat}. Click to change category or remove."
+                        if shortlist_cat
+                        else "Add this idea to a Shortlist category folder"
+                    )
+                    if st.button(
+                        sl_btn_label,
+                        key=f"{key_prefix}_sl_{sid}",
+                        use_container_width=True,
+                        help=sl_help,
+                    ):
+                        st.session_state.shortlist_pick_sub_id = sid
+                        st.rerun()
+            ai += 1
+            with act_cols[ai]:
+                if st.button("Delete", key=f"{key_prefix}_del_{sid}", use_container_width=True):
+                    _remove_from_shortlist(sid)
+                    st.session_state.investment_memos.pop(sid, None)
+                    _clear_criterion_detail_cache(sid)
+                    _close_criterion_deep_dives_for_submission(sid)
+                    st.session_state.submissions = [
+                        s for s in st.session_state.submissions if s["id"] != sid
+                    ]
+                    st.rerun()
+
+    if sub.get("categories"):
+        with st.expander(
+            f"AI Score Breakdown — {sub['name']}",
+            expanded=False,
+        ):
+            _render_score_breakdown_panel(
+                sub,
+                breakdown_page=st.session_state.get("nav_page"),
+            )
+
+
+def _render_score_breakdown_panel(sub, *, breakdown_page: str | None = None):
+    """Score breakdown content (gating, files, gauges, criteria) for one submission."""
+    page_ctx = breakdown_page or st.session_state.get("nav_page", "")
+    ar = sub.get("auto_reject", [])
+    hr = sub.get("high_risk", [])
+    if ar:
+        ar_items = "".join(f"<li>{_esc(r)}</li>" for r in ar)
+        st.markdown(f"""
+        <div style="background:#2b0f0f;border:1px solid #6e1818;border-radius:8px;
+                    padding:12px 16px;margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:700;color:#f85149;
+                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+            Auto-Reject Gate Triggered</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:#f85149;">{ar_items}</ul>
+        </div>""", unsafe_allow_html=True)
+    if hr:
+        hr_items = "".join(f"<li>{_esc(r)}</li>" for r in hr)
+        st.markdown(f"""
+        <div style="background:#2b1f05;border:1px solid #9e6a03;border-radius:8px;
+                    padding:12px 16px;margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:700;color:#d29922;
+                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+            High-Risk Flag</div>
+          <ul style="margin:0;padding-left:16px;font-size:12px;color:#d29922;">{hr_items}</ul>
+        </div>""", unsafe_allow_html=True)
+
+    file_sums = sub.get("file_summaries", [])
+    if file_sums:
+        _ftype_icons = {
+            "pdf": "📄", "image": "🖼", "video": "🎬",
+            "text": "📝", "other": "📎",
+        }
+        _method_labels = {
+            "PyMuPDF-blocks": "PyMuPDF (blocks)", "PyMuPDF-text": "PyMuPDF (text)",
+            "PyMuPDF-dict": "PyMuPDF (dict)", "PyMuPDF-words": "PyMuPDF (words)",
+            "PyMuPDF-html": "PyMuPDF (html)", "PyMuPDF-raw": "PyMuPDF (raw)",
+            "PyMuPDF-text-flags": "PyMuPDF (text+flags)",
+            "pypdf": "pypdf", "tesseract-ocr": "OCR (Tesseract)",
+            "pdf-vision-llm": "Vision fallback",
+            "pypdf+vision-llm": "pypdf + Vision",
+            "PyMuPDF-text+vision-llm": "PyMuPDF + Vision",
+            "image-pdf-limited": "Image PDF (limited text)",
+            "vision_llm+pillow": "LLM Vision", "pillow_metadata": "Pillow",
+            "cv2+vision": "cv2 + Vision", "cv2": "cv2",
+            "metadata": "metadata", "utf8": "text", "python-docx": "docx",
+            "empty": "empty",
+        }
+        ext_note = sub.get("extraction_note") or _build_extraction_note(file_sums)
+        if ext_note:
+            st.markdown(
+                f'<div style="font-size:11px;color:#8aa4c0;background:rgba(59,130,246,0.08);'
+                f'border:1px solid rgba(59,130,246,0.2);border-radius:6px;'
+                f'padding:8px 12px;margin-bottom:10px;">📎 {_esc(ext_note)}</div>',
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            '<div style="font-size:10px;font-weight:700;color:#8b949e;'
+            'text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">'
+            'Uploaded Files</div>',
+            unsafe_allow_html=True,
+        )
+        fs_cols = st.columns(min(len(file_sums), 3))
+        for fi, fs in enumerate(file_sums):
+            with fs_cols[fi % 3]:
+                ftype_ic = _ftype_icons.get(fs.get("file_type", "other"), "📎")
+                method_lbl = _method_labels.get(fs.get("extraction_method", ""))
+                if not method_lbl:
+                    raw_m = fs.get("extraction_method", "")
+                    if "+vision-llm" in raw_m:
+                        base = raw_m.replace("+vision-llm", "")
+                        base_lbl = _method_labels.get(base, base)
+                        method_lbl = f"{base_lbl} + Vision"
+                    else:
+                        method_lbl = raw_m or "—"
+                extra = ""
+                if fs.get("pages"):
+                    extra = f'{fs["pages"]} pages · '
+                if fs.get("dimensions"):
+                    extra = f'{fs["dimensions"]} · '
+                chars_lbl = f'{fs["chars"]:,} chars' if fs.get("chars") else "—"
+                size_lbl = f'{fs["file_size_kb"]} KB' if fs.get("file_size_kb") else ""
+                fname = _esc(fs.get("name", "")[:30])
+                diag_line = ""
+                if fs.get("vision_error"):
+                    diag_line = (
+                        f'<div style="color:#d29922;font-size:10px;margin-top:3px;">'
+                        f'Vision: {_esc(fs["vision_error"][:80])}</div>'
+                    )
+                elif fs.get("extraction_diagnostics"):
+                    diag_line = (
+                        f'<div style="color:#6e7681;font-size:10px;margin-top:3px;">'
+                        f'{_esc(fs["extraction_diagnostics"][:100])}</div>'
+                    )
+                preview_snip = (fs.get("preview") or "").strip()
+                preview_line = ""
+                if preview_snip and fs.get("file_type") == "pdf":
+                    preview_line = (
+                        f'<div style="color:#484f58;font-size:9px;margin-top:4px;'
+                        f'font-family:monospace;line-height:1.3;max-height:2.6em;'
+                        f'overflow:hidden;">{_esc(preview_snip[:120])}…</div>'
+                    )
+
+                if fs.get("thumbnail_b64"):
+                    st.markdown(
+                        f'<img src="data:image/jpeg;base64,{fs["thumbnail_b64"]}" '
+                        f'style="width:100%;border-radius:4px;margin-bottom:4px;" alt="">',
+                        unsafe_allow_html=True,
+                    )
+                st.markdown(
+                    f'<div style="background:#0d1117;border:1px solid #21262d;'
+                    f'border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;">'
+                    f'<div style="font-weight:600;color:#e6edf3;margin-bottom:3px;">'
+                    f'{ftype_ic} {fname}</div>'
+                    f'<div style="color:#8b949e;">{extra}{chars_lbl} · {size_lbl}</div>'
+                    f'<div style="color:#6e7681;font-size:10px;margin-top:2px;">'
+                    f'via {_esc(method_lbl)}</div>'
+                    f'{diag_line}{preview_line}</div>',
+                    unsafe_allow_html=True,
+                )
+
+        raw_text = sub.get("extracted_text", "")
+        preview_500 = sub.get("extraction_preview") or raw_text[:PDF_EXTRACTION_PREVIEW_CHARS]
+        if preview_500.strip():
+            with st.expander(
+                f"Extracted Content Preview ({len(raw_text):,} chars total)",
+                expanded=False,
+            ):
+                st.caption("First 500 characters:")
+                st.code(
+                    preview_500 + ("…" if len(raw_text) > PDF_EXTRACTION_PREVIEW_CHARS else ""),
+                    language=None,
+                )
+                if len(raw_text) > PDF_EXTRACTION_PREVIEW_CHARS:
+                    st.caption("Full extracted text (truncated at 8,000 chars):")
+                    st.code(
+                        raw_text[:8000] + ("…" if len(raw_text) > 8000 else ""),
+                        language=None,
+                    )
+
+    hist = sub.get("stage_history", [])
+    if hist:
+        dots = ""
+        for i, entry in enumerate(hist):
+            is_current = entry["stage"] == sub["stage"]
+            sc_clr = next(
+                (s["color"] for s in STAGES if s["name"] == entry["stage"]), "#8b949e"
+            )
+            dot_clr = sc_clr if is_current else "#30363d"
+            txt_clr = sc_clr if is_current else "#6e7681"
+            fw = "700" if is_current else "500"
+            sep = (
+                '<span style="color:#30363d;margin:0 6px;">|</span>'
+                if i < len(hist) - 1 else ""
+            )
+            dots += (
+                f'<span style="font-size:11px;font-weight:{fw};color:{txt_clr};">'
+                f'<span style="color:{dot_clr};">●</span> {_esc(entry["stage"])}'
+                f'<span style="font-size:9px;color:#6e7681;margin-left:4px;">'
+                f'{_esc(entry.get("moved_at", ""))}</span></span>{sep}'
+            )
+        st.markdown(f"""
+        <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;
+                    padding:10px 16px;margin-bottom:12px;overflow-x:auto;white-space:nowrap;">
+          <div style="font-size:10px;font-weight:700;color:#8b949e;
+                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
+            Stage History</div>
+          <div>{dots}</div>
+        </div>""", unsafe_allow_html=True)
+
+    summ = sub.get("stage_summary", "")
+    if summ:
+        st.markdown(f"""
+        <div style="background:#0c1e35;border:1px solid #1f6feb44;border-radius:8px;
+                    padding:12px 16px;margin-bottom:16px;">
+          <div style="font-size:10px;font-weight:700;color:#58a6ff;
+                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
+            AI Stage Note — {_esc(sub.get("stage", ""))}</div>
+          <div style="font-size:12px;color:#b0b8c4;line-height:1.6;">{summ}</div>
+        </div>""", unsafe_allow_html=True)
+
+    top4 = list(sub["categories"].items())[:4]
+    gauge_cols = st.columns(len(top4))
+    for i, (cid, cd) in enumerate(top4):
+        with gauge_cols[i]:
+            st.plotly_chart(
+                make_gauge(cd["score"], cd["name"]),
+                use_container_width=True,
+                key=f"g_{sub['id']}_{i}",
+            )
+
+    st.markdown(
+        '<div class="section-hd" style="margin-top:12px;">All Criteria</div>',
+        unsafe_allow_html=True,
+    )
+
+    anchor_colors = {"1-3": "#f85149", "4-6": "#d29922", "7-10": "#3fb950"}
+    ev_colors = {"Sufficient": "#3fb950", "Partial": "#d29922", "Insufficient": "#f85149"}
+
+    for cid, cd in sub["categories"].items():
+        c = score_hex(cd["score"])
+        ev_c = ev_colors.get(cd.get("evidence", "Partial"), "#8b949e")
+        s10 = cd.get("score_10", round(cd["score"] / 10, 1))
+        just_txt = _esc(cd.get("justification", ""))
+        ev_lbl = _esc(cd.get("evidence", "Partial"))
+        rf_hits = cd.get("red_flags", [])
+        wt = cd.get("weight", "—")
+        crit_slug = _crit_key_slug(cid)
+        sid = sub["id"]
+        panel_key = _criterion_panel_key(sid, cid)
+
+        rf_html = ""
+        if rf_hits:
+            rf_html = "".join(
+                f'<span style="font-size:10px;color:#f85149;margin-right:8px;">'
+                f'⚑ {_esc(rf)}</span>'
+                for rf in rf_hits
+            )
+            rf_html = f'<div style="margin-top:4px;">{rf_html}</div>'
+
+        crit_col, expand_col = st.columns([5.5, 1])
+        with crit_col:
+            st.markdown(f"""
+            <div class="crit-breakdown-row">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+                <span style="font-size:13px;font-weight:600;color:#e6edf3;">{_esc(cid)}</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <span style="font-size:11px;color:#8b949e;">Weight: {wt}%</span>
+                  <span style="font-size:14px;font-weight:800;color:{c};">{s10}/10</span>
+                  <span style="font-size:10px;font-weight:600;color:{ev_c};
+                               background:{ev_c}18;border:1px solid {ev_c}44;
+                               border-radius:4px;padding:1px 6px;">{ev_lbl}</span>
+                </div>
+              </div>
+              <div style="background:#21262d;border-radius:2px;height:4px;margin-bottom:8px;">
+                <div style="width:{cd['score']}%;background:{c};height:100%;border-radius:2px;"></div>
+              </div>
+              <div style="font-size:12px;color:#8b949e;line-height:1.5;">{just_txt}</div>
+              {rf_html}
+            </div>""", unsafe_allow_html=True)
+        with expand_col:
+            st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+            if st.button(
+                "▸ Expand",
+                key=f"crit_exp_{page_ctx}_{panel_key}",
+                use_container_width=True,
+                help=f"Deep-dive analysis for {cid}",
+            ):
+                _open_criterion_deep_dive(sid, cid)
+                st.rerun()
+
+    scored_at = sub.get("scored_at", "")
+    if scored_at:
+        st.markdown(
+            f'<div style="font-size:11px;color:#8b949e;margin-top:8px;text-align:right;">'
+            f'Scored at {_esc(scored_at)}</div>',
+            unsafe_allow_html=True,
+        )
+
+def _render_shortlist_folder_grid():
+    """Category folder cards on the Shortlist landing view."""
+    _purge_shortlist_orphans()
+    _ensure_shortlist_buckets()
+
+    st.markdown(
+        '<div class="section-hd">Browse by Category</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<p style="font-size:13px;color:var(--text-3);margin:-6px 0 18px 0;">'
+        "Saved submissions organized by industry. Click a folder to open its ideas.</p>",
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3)
+    for i, cat in enumerate(SHORTLIST_CATEGORIES):
+        meta = SHORTLIST_CATEGORY_META.get(cat, SHORTLIST_CATEGORY_META["Other"])
+        count = len(st.session_state.shortlist.get(cat, []))
+        with cols[i % 3]:
+            st.markdown(
+                f'<div class="shortlist-folder-card" style="--shortlist-accent:{meta["color"]};">'
+                f'<span class="shortlist-folder-icon">{meta["icon"]}</span>'
+                f'<div class="shortlist-folder-name">{_esc(cat)}</div>'
+                f'<div class="shortlist-folder-count">{count}</div>'
+                f'<div class="shortlist-folder-count-label">'
+                f'{"idea" if count == 1 else "ideas"} saved</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+            if st.button(
+                "Open folder",
+                key=f"sl_open_{i}",
+                use_container_width=True,
+                disabled=count == 0,
+            ):
+                st.session_state.shortlist_view_category = cat
+                st.rerun()
+
+
+def _render_shortlist_category_detail(category: str, rubric_data):
+    """Shortlist category view — table of saved submissions in one folder."""
+    meta = SHORTLIST_CATEGORY_META.get(category, SHORTLIST_CATEGORY_META["Other"])
+    items = _submissions_in_shortlist_category(category)
+
+    if st.button("← All folders", key="sl_back_all"):
+        st.session_state.shortlist_view_category = None
+        _close_criterion_detail_dialog()
+        st.rerun()
+
+    st.markdown(
+        f'<div style="display:flex;align-items:center;gap:12px;margin:8px 0 20px 0;">'
+        f'<span style="font-size:32px;">{meta["icon"]}</span>'
+        f'<div>'
+        f'<div style="font-size:18px;font-weight:700;color:var(--text-1);">'
+        f'{_esc(category)}</div>'
+        f'<div style="font-size:12px;color:var(--text-3);">'
+        f'{len(items)} saved submission{"s" if len(items) != 1 else ""}</div>'
+        f'</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    if not items:
+        st.markdown("""
+        <div class="empty-state" style="padding:48px 24px;">
+            <div class="empty-icon">⭐</div>
+            <div class="empty-title">This folder is empty</div>
+            <div class="empty-sub">Use <strong>⭐ Shortlist</strong> on the Submissions page<br>
+            to add ideas to this category.</div>
+        </div>""", unsafe_allow_html=True)
+        return
+
+    cat_idx = SHORTLIST_CATEGORIES.index(category)
+    _render_submissions_table_header()
+    for sub in items:
+        _render_submission_table_row(
+            sub,
+            rubric_data,
+            key_prefix=f"sl_{cat_idx}",
+            show_shortlist=False,
+            show_remove_shortlist=True,
+        )
+
 
 def make_gauge(score, title="", height=150):
     color = score_hex(score)
@@ -1392,7 +2802,378 @@ def ai_score_submission(submission, rubric_data):
     }
 
 
-def _vision_describe_image(img_bytes: bytes, filename: str, api_key: str, base_url: str, model: str) -> str:
+PDF_MIN_TEXT_CHARS = 300
+PDF_EXTRACTION_PREVIEW_CHARS = 500
+PDF_VISION_MAX_PAGES = 8
+PDF_OCR_MAX_PAGES = 15
+EXTRACTED_TEXT_LLM_LIMIT = 10000
+
+_FITZ_OK: bool | None = None
+_FITZ_ERR = ""
+
+
+def _fitz_available() -> tuple[bool, str]:
+    """Cached check — PyMuPDF can fail at import on some Windows/Python builds."""
+    global _FITZ_OK, _FITZ_ERR
+    if _FITZ_OK is None:
+        try:
+            import fitz  # noqa: F401
+            _FITZ_OK = True
+        except Exception as exc:
+            _FITZ_OK = False
+            _FITZ_ERR = str(exc)
+    return _FITZ_OK, _FITZ_ERR
+
+
+def _pdf_page_count(file_bytes: bytes) -> int:
+    """Page count via PyMuPDF, pypdf, or pypdfium2."""
+    if _fitz_available()[0]:
+        try:
+            doc = _open_pdf_fitz(file_bytes)
+            n = doc.page_count
+            doc.close()
+            return n
+        except Exception:
+            pass
+    import io as _io
+
+    try:
+        import pypdf
+
+        return len(pypdf.PdfReader(_io.BytesIO(file_bytes), strict=False).pages)
+    except Exception:
+        pass
+    try:
+        import pypdfium2 as pdfium
+
+        return len(pdfium.PdfDocument(file_bytes))
+    except Exception:
+        return 0
+
+
+def _render_pdf_page_png_bytes(file_bytes: bytes, page_index: int) -> bytes | None:
+    """Render one PDF page to PNG — PyMuPDF first, then pypdfium2 if DLL unavailable."""
+    if _fitz_available()[0]:
+        try:
+            doc = _open_pdf_fitz(file_bytes)
+            png = _pdf_page_to_png_bytes(doc.load_page(page_index))
+            doc.close()
+            if png:
+                return png
+        except Exception:
+            pass
+    try:
+        import io as _io
+
+        import pypdfium2 as pdfium
+
+        pdf = pdfium.PdfDocument(file_bytes)
+        if page_index < 0 or page_index >= len(pdf):
+            return None
+        pil = pdf[page_index].render(scale=2.0).to_pil().convert("RGB")
+        buf = _io.BytesIO()
+        pil.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
+def _meaningful_text_len(text: str) -> int:
+    """Length of text after stripping page markers, noise, and excess whitespace."""
+    if not text:
+        return 0
+    cleaned = re.sub(r"\[Page \d+[^\]]*\]", "", text)
+    cleaned = re.sub(r"\[PDF:[^\]]+\]", "", cleaned)
+    cleaned = re.sub(r"\[AI Pitch Deck Vision Analysis\]", "", cleaned)
+    cleaned = re.sub(r"\[Image-based PDF[^\]]*\]", "", cleaned)
+    cleaned = re.sub(r"\(Vision fallback failed:[^)]+\)", "", cleaned, flags=re.I)
+    cleaned = re.sub(r"\(No extractable text[^)]*\)", "", cleaned, flags=re.I)
+    cleaned = re.sub(r"\[Note:[^\]]+\]", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return len(cleaned)
+
+
+def _strip_html_tags(html: str) -> str:
+    """Rough HTML → plain text for PyMuPDF html/xhtml modes."""
+    import html as _html
+
+    text = re.sub(r"(?is)<(script|style).*?>.*?</\1>", " ", html)
+    text = re.sub(r"(?is)<br\s*/?>", "\n", text)
+    text = re.sub(r"(?is)</p>", "\n", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = _html.unescape(text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _pymupdf_page_blocks(pg) -> str:
+    blocks = pg.get_text("blocks")
+    return "\n".join(
+        b[4].strip()
+        for b in sorted(blocks, key=lambda b: (b[1], b[0]))
+        if len(b) > 4 and b[4].strip()
+    )
+
+
+def _pymupdf_page_dict(pg) -> str:
+    data = pg.get_text("dict")
+    lines: list[str] = []
+    for block in data.get("blocks", []):
+        if block.get("type") != 0:
+            continue
+        for line in block.get("lines", []):
+            line_text = "".join(s.get("text", "") for s in line.get("spans", [])).strip()
+            if line_text:
+                lines.append(line_text)
+    return "\n".join(lines)
+
+
+def _pymupdf_page_words(pg) -> str:
+    words = pg.get_text("words")
+    if not words:
+        return ""
+    words.sort(key=lambda w: (w[5], w[6], w[7], w[1], w[0]))
+    return " ".join(w[4].strip() for w in words if len(w) > 4 and w[4].strip())
+
+
+def _pymupdf_page_html(pg) -> str:
+    try:
+        return _strip_html_tags(pg.get_text("html"))
+    except Exception:
+        return ""
+
+
+def _open_pdf_fitz(file_bytes: bytes):
+    """Open PDF with PyMuPDF; try stream variants."""
+    import io as _io
+
+    import fitz
+
+    last_err: Exception | None = None
+    for stream in (file_bytes, _io.BytesIO(file_bytes)):
+        try:
+            return fitz.open(stream=stream, filetype="pdf")
+        except Exception as exc:
+            last_err = exc
+    raise last_err or RuntimeError("Cannot open PDF")
+
+
+def _pdf_page_to_png_bytes(pg, scales: tuple = (2.0, 1.5, 1.0)) -> bytes | None:
+    """Render a PDF page to PNG bytes with several fallback strategies."""
+    import io as _io
+
+    import fitz
+    from PIL import Image
+
+    for scale in scales:
+        for dpi in (None, int(120 * scale)):
+            try:
+                if dpi:
+                    pix = pg.get_pixmap(dpi=dpi, alpha=False)
+                else:
+                    pix = pg.get_pixmap(matrix=fitz.Matrix(scale, scale), alpha=False)
+                return pix.tobytes("png")
+            except Exception:
+                pass
+    try:
+        pix = pg.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+        buf = _io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
+
+
+def _extract_pdf_text_pymupdf(file_bytes: bytes) -> tuple[str, int, str, str | None]:
+    """Try several PyMuPDF text modes; return (text, page_count, method, error)."""
+    ok, fitz_err = _fitz_available()
+    if not ok:
+        return "", 0, "none", f"PyMuPDF unavailable: {fitz_err}"
+
+    open_error: str | None = None
+    doc = None
+    try:
+        doc = _open_pdf_fitz(file_bytes)
+    except Exception as exc:
+        open_error = str(exc)
+
+    if doc is None:
+        return "", 0, "none", open_error
+
+    page_count = doc.page_count
+    page_extractors = [
+        ("PyMuPDF-blocks", _pymupdf_page_blocks),
+        ("PyMuPDF-text", lambda pg: pg.get_text("text", sort=True).strip()),
+        ("PyMuPDF-dict", _pymupdf_page_dict),
+        ("PyMuPDF-words", _pymupdf_page_words),
+        ("PyMuPDF-html", _pymupdf_page_html),
+        ("PyMuPDF-raw", lambda pg: pg.get_text().strip()),
+    ]
+    try:
+        page_extractors.append(
+            ("PyMuPDF-text-flags", lambda pg: pg.get_text(
+                "text", sort=True, flags=fitz.TEXT_PRESERVE_WHITESPACE,
+            ).strip()),
+        )
+    except Exception:
+        pass
+
+    best_text, best_len, best_method = "", 0, "none"
+    for method_name, extractor in page_extractors:
+        pages: list[str] = []
+        for i in range(page_count):
+            pg_text = ""
+            for loader in (
+                lambda idx=i: doc.load_page(idx),
+                lambda idx=i: doc[idx],
+            ):
+                try:
+                    pg = loader()
+                    pg_text = extractor(pg)
+                    if pg_text.strip():
+                        break
+                except Exception:
+                    pg_text = ""
+            if pg_text.strip():
+                pages.append(f"[Page {i + 1}]\n{pg_text.strip()}")
+        combined = "\n\n".join(pages)
+        n = _meaningful_text_len(combined)
+        if n > best_len:
+            best_text, best_len, best_method = combined, n, method_name
+    doc.close()
+    return best_text, page_count, best_method, open_error
+
+
+def _extract_pdf_text_pypdf(file_bytes: bytes) -> tuple[str, int, str | None]:
+    """Fallback text extraction via pypdf (default + layout modes)."""
+    import io as _io
+
+    import pypdf
+
+    err: str | None = None
+    try:
+        reader = pypdf.PdfReader(_io.BytesIO(file_bytes), strict=False)
+    except Exception as exc:
+        return "", 0, str(exc)
+
+    pages: list[str] = []
+    for i, pg in enumerate(reader.pages):
+        candidates: list[str] = []
+        for mode in (None, "layout"):
+            try:
+                if mode:
+                    t = pg.extract_text(extraction_mode=mode) or ""
+                else:
+                    t = pg.extract_text() or ""
+                if t.strip():
+                    candidates.append(t.strip())
+            except Exception as exc:
+                err = str(exc)
+        if candidates:
+            best = max(candidates, key=_meaningful_text_len)
+            pages.append(f"[Page {i + 1}]\n{best}")
+    return "\n\n".join(pages), len(reader.pages), err
+
+
+def _ocr_available() -> tuple[bool, str]:
+    """Check whether Tesseract OCR is usable (avoids DLL import crashes)."""
+    try:
+        import pytesseract
+
+        pytesseract.get_tesseract_version()
+        return True, ""
+    except Exception as exc:
+        return False, str(exc)[:160]
+
+
+def _extract_pdf_text_ocr(
+    file_bytes: bytes, max_pages: int = PDF_OCR_MAX_PAGES,
+) -> tuple[str, int, str | None]:
+    """OCR scanned/image PDF pages with pytesseract (optional; never raises)."""
+    ok, ocr_err = _ocr_available()
+    if not ok:
+        return "", 0, ocr_err or "OCR unavailable"
+
+    try:
+        import io as _io
+
+        import pytesseract
+        from PIL import Image
+    except Exception as exc:
+        return "", 0, str(exc)[:160]
+
+    page_total = _pdf_page_count(file_bytes)
+    if not page_total:
+        return "", 0, "Cannot open PDF for OCR"
+
+    pages: list[str] = []
+    page_errors: list[str] = []
+    limit = min(page_total, max_pages)
+    for i in range(limit):
+        try:
+            png_bytes = _render_pdf_page_png_bytes(file_bytes, i)
+            if not png_bytes:
+                page_errors.append(f"page {i + 1}: render failed")
+                continue
+            img = Image.open(_io.BytesIO(png_bytes)).convert("RGB")
+            ocr_text = pytesseract.image_to_string(img).strip()
+            if ocr_text:
+                pages.append(f"[Page {i + 1} OCR]\n{ocr_text}")
+        except Exception as exc:
+            page_errors.append(f"page {i + 1}: {exc}")
+    err = "; ".join(page_errors[:3]) if page_errors and not pages else None
+    return "\n\n".join(pages), limit, err
+
+
+def _build_extraction_note(file_summaries: list) -> str:
+    """Human-readable extraction summary for score breakdown UI."""
+    _labels = {
+        "PyMuPDF-blocks": "PyMuPDF (blocks)", "PyMuPDF-text": "PyMuPDF (text)",
+        "PyMuPDF-dict": "PyMuPDF (dict)", "PyMuPDF-words": "PyMuPDF (words)",
+        "PyMuPDF-html": "PyMuPDF (html)", "PyMuPDF-raw": "PyMuPDF (raw)",
+        "PyMuPDF-text-flags": "PyMuPDF (text+flags)",
+        "pypdf": "pypdf", "tesseract-ocr": "OCR (Tesseract)",
+        "pdf-vision-llm": "Vision fallback", "image-pdf-limited": "Image PDF (limited)",
+        "empty": "empty",
+    }
+    pdf_sums = [s for s in file_summaries if s.get("file_type") == "pdf"]
+    if not pdf_sums:
+        total = sum(s.get("chars", 0) for s in file_summaries)
+        if file_summaries and total:
+            return f"Extracted {total:,} characters total"
+        return ""
+    fs = pdf_sums[0]
+    method = fs.get("extraction_method", "")
+    method_lbl = _labels.get(method, method.replace("+", " + "))
+    chars = fs.get("chars", 0)
+    before = fs.get("text_chars_before_vision", 0)
+    parts: list[str] = []
+    if "vision" in method.lower():
+        parts.append(
+            f"Extracted {before:,} chars (text) · Vision fallback used → {chars:,} chars total"
+        )
+    elif method == "image-pdf-limited":
+        parts.append(f"Image-based PDF — {chars:,} chars (limited text extraction)")
+    elif "ocr" in method.lower() or "tesseract" in method.lower():
+        parts.append(f"Extracted {chars:,} chars via OCR")
+    else:
+        parts.append(f"Extracted {chars:,} chars via {method_lbl}")
+    if fs.get("vision_error"):
+        parts.append(f"Vision note: {fs['vision_error'][:100]}")
+    if fs.get("extraction_diagnostics"):
+        parts.append(fs["extraction_diagnostics"][:120])
+    return " · ".join(parts)
+
+
+def _vision_describe_image(
+    img_bytes: bytes,
+    filename: str,
+    api_key: str,
+    base_url: str,
+    model: str,
+    prompt: str | None = None,
+    max_tokens: int = 400,
+) -> str:
     """
     Send an image to a vision-capable LLM and return a structured description.
     Raises RuntimeError on failure — caller handles fallback.
@@ -1403,7 +3184,7 @@ def _vision_describe_image(img_bytes: bytes, filename: str, api_key: str, base_u
             "gif": "image/gif", "webp": "image/webp", "bmp": "image/bmp"}.get(ext, "image/jpeg")
     data_url = f"data:{mime};base64,{_b64.b64encode(img_bytes).decode()}"
 
-    prompt = (
+    prompt = prompt or (
         "You are analyzing an uploaded file for a physical goods product innovation platform. "
         "Describe what you see in structured form covering: "
         "(1) Product or concept shown, "
@@ -1418,7 +3199,7 @@ def _vision_describe_image(img_bytes: bytes, filename: str, api_key: str, base_u
             {"type": "text", "text": prompt},
             {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}},
         ]}],
-        "max_tokens": 400,
+        "max_tokens": max_tokens,
         "temperature": 0.3,
     }).encode("utf-8")
     req = urllib.request.Request(
@@ -1430,6 +3211,72 @@ def _vision_describe_image(img_bytes: bytes, filename: str, api_key: str, base_u
             return json.loads(resp.read().decode())["choices"][0]["message"]["content"].strip()
     except Exception as exc:
         raise RuntimeError(f"Vision API: {exc}") from exc
+
+
+_PDF_VISION_PROMPT = (
+    "You are analyzing a product innovation pitch deck (PDF page image) for a physical-goods "
+    "innovation screening platform. Extract ALL readable content from this slide. Include:\n"
+    "- Company / brand and product name\n"
+    "- Headline value proposition and problem/solution\n"
+    "- Product details, materials, form factor, packaging\n"
+    "- Market size, traction, retail/distribution, pricing if shown\n"
+    "- Team, timeline, funding ask, manufacturing notes\n"
+    "Be thorough and factual — this replaces failed text extraction. Max 250 words per page."
+)
+
+
+def _vision_describe_pdf(
+    file_bytes: bytes,
+    filename: str,
+    api_key: str,
+    base_url: str,
+    model: str,
+    max_pages: int = PDF_VISION_MAX_PAGES,
+) -> tuple[str, int, str | None]:
+    """
+    Render PDF pages to images and describe via vision LLM (pitch-deck fallback).
+    Returns (combined_text, pages_analyzed, error_note). Never raises.
+    """
+    total_pages = _pdf_page_count(file_bytes)
+    if not total_pages:
+        fitz_ok, fitz_err = _fitz_available()
+        hint = fitz_err[:80] if not fitz_ok else "unknown"
+        return "", 0, f"Cannot open PDF for vision ({hint})"
+
+    sections: list[str] = []
+    page_errors: list[str] = []
+    limit = min(total_pages, max_pages)
+    pages_ok = 0
+    for i in range(limit):
+        try:
+            png_bytes = _render_pdf_page_png_bytes(file_bytes, i)
+            if not png_bytes:
+                page_errors.append(f"page {i + 1}: could not render slide image")
+                continue
+            desc = _vision_describe_image(
+                png_bytes,
+                f"{filename}_page{i + 1}.png",
+                api_key,
+                base_url,
+                model,
+                prompt=_PDF_VISION_PROMPT,
+                max_tokens=650,
+            )
+            if desc.strip():
+                sections.append(f"[Page {i + 1} — Vision Analysis]\n{desc.strip()}")
+                pages_ok += 1
+        except Exception as exc:
+            page_errors.append(f"page {i + 1}: {exc}")
+
+    if total_pages > limit and sections:
+        sections.append(
+            f"[Note: PDF has {total_pages} pages; vision analysis covers first {limit} pages.]"
+        )
+
+    err_note = "; ".join(page_errors[:4]) if page_errors else None
+    if not sections and err_note:
+        return "", 0, err_note
+    return "\n\n".join(sections), pages_ok, err_note
 
 
 def extract_file_text(
@@ -1480,54 +3327,175 @@ def extract_file_text(
             # ── PDF ──────────────────────────────────────────────────────────
             if flower.endswith(".pdf") or "pdf" in ftype_mime:
                 summary["file_type"] = "pdf"
-                text_pages: list = []
                 page_count = 0
                 method = "none"
+                combined_pdf = ""
+                text_before_vision = 0
+                diagnostics: list[str] = []
+                pymupdf_error: str | None = None
+                ocr_error: str | None = None
+                vision_error: str | None = None
+                fitz_ok, fitz_err = _fitz_available()
+                if not fitz_ok:
+                    diagnostics.append(
+                        f"PyMuPDF unavailable — using pypdf + pypdfium2 ({fitz_err[:60]})"
+                    )
 
-                # Try PyMuPDF (layout-aware, handles columns/tables better)
+                # 1) PyMuPDF — multiple text modes, pick richest result
                 try:
-                    import fitz  # PyMuPDF
-                    doc = fitz.open(stream=file_bytes, filetype="pdf")
-                    page_count = doc.page_count
-                    for pg in doc:
-                        blocks = pg.get_text("blocks")
-                        pg_text = "\n".join(
-                            b[4].strip()
-                            for b in sorted(blocks, key=lambda b: (b[1], b[0]))
-                            if len(b) > 4 and b[4].strip()
-                        )
-                        if pg_text:
-                            text_pages.append(f"[Page {pg.number + 1}]\n{pg_text}")
-                    doc.close()
-                    method = "PyMuPDF"
-                except ImportError:
-                    pass  # fall through to pypdf
-                except Exception:
-                    pass
+                    combined_pdf, page_count, method, pymupdf_error = (
+                        _extract_pdf_text_pymupdf(file_bytes)
+                    )
+                    if pymupdf_error and not combined_pdf.strip():
+                        diagnostics.append(f"PyMuPDF: {pymupdf_error[:90]}")
+                except Exception as exc:
+                    combined_pdf = ""
+                    pymupdf_error = str(exc)
+                    diagnostics.append(f"PyMuPDF: {pymupdf_error[:90]}")
 
-                if not text_pages:
+                if not page_count:
+                    page_count = _pdf_page_count(file_bytes)
+
+                # 2) pypdf fallback if PyMuPDF empty or weak
+                if _meaningful_text_len(combined_pdf) < PDF_MIN_TEXT_CHARS:
                     try:
-                        import pypdf
-                        reader = pypdf.PdfReader(_io.BytesIO(file_bytes))
-                        page_count = len(reader.pages)
-                        for pg in reader.pages:
-                            t = pg.extract_text()
-                            if t:
-                                text_pages.append(t.strip())
-                        method = "pypdf"
-                    except Exception as pdf_err:
-                        text_pages = [f"(Extraction failed: {pdf_err})"]
-                        method = "error"
+                        pypdf_text, pypdf_pages, pypdf_err = _extract_pdf_text_pypdf(file_bytes)
+                        if pypdf_err and not pypdf_text.strip():
+                            diagnostics.append(f"pypdf: {pypdf_err[:90]}")
+                        if _meaningful_text_len(pypdf_text) > _meaningful_text_len(combined_pdf):
+                            combined_pdf = pypdf_text
+                            page_count = pypdf_pages or page_count
+                            method = "pypdf"
+                    except ImportError:
+                        diagnostics.append("pypdf not installed")
+                    except Exception as exc:
+                        diagnostics.append(f"pypdf: {str(exc)[:90]}")
 
-                combined_pdf = "\n\n".join(text_pages)
-                label = f"[PDF: {fname} · {page_count} page(s) · via {method}]"
+                text_before_vision = _meaningful_text_len(combined_pdf)
+
+                # 3) OCR if still too short (skipped gracefully when Tesseract/DLL unavailable)
+                if text_before_vision < PDF_MIN_TEXT_CHARS:
+                    ocr_text, ocr_pages, ocr_error = _extract_pdf_text_ocr(file_bytes)
+                    if ocr_error and not ocr_text.strip():
+                        diagnostics.append(f"OCR skipped: {ocr_error[:90]}")
+                    if _meaningful_text_len(ocr_text) > text_before_vision:
+                        combined_pdf = ocr_text
+                        if not page_count:
+                            page_count = ocr_pages
+                        method = "tesseract-ocr"
+                        text_before_vision = _meaningful_text_len(combined_pdf)
+                        if status_slot:
+                            status_slot.markdown(
+                                f'<div style="font-size:12px;color:#8b949e;padding:2px 0;">'
+                                f'📷 OCR fallback for <strong>{_esc(fname)}</strong> '
+                                f'({text_before_vision:,} chars)</div>',
+                                unsafe_allow_html=True,
+                            )
+
+                # 4) Vision LLM fallback for image-heavy pitch decks
+                vision_block = ""
+                vision_pages_ok = 0
+                if text_before_vision < PDF_MIN_TEXT_CHARS and api_key:
+                    if status_slot:
+                        status_slot.markdown(
+                            f'<div style="font-size:12px;color:#8b949e;padding:2px 0;">'
+                            f'👁 Vision analysis for <strong>{_esc(fname)}</strong> '
+                            f'(only {text_before_vision:,} chars from text/OCR)…</div>',
+                            unsafe_allow_html=True,
+                        )
+                    vision_block, vision_pages_ok, vision_error = _vision_describe_pdf(
+                        file_bytes, fname, api_key, base_url, model,
+                    )
+                    if vision_error and not vision_block.strip():
+                        diagnostics.append(f"Vision: {vision_error[:100]}")
+                    elif vision_error and vision_block.strip():
+                        diagnostics.append(f"Vision partial: {vision_error[:80]}")
+
+                    if vision_block.strip():
+                        base_method = method if method != "none" else "pdf-vision-llm"
+                        method = (
+                            "pdf-vision-llm"
+                            if base_method == "pdf-vision-llm"
+                            else f"{base_method}+vision-llm"
+                        )
+                    elif vision_error:
+                        vision_error = vision_error[:200]
+
+                if vision_block.strip():
+                    prefix = combined_pdf.strip()
+                    if prefix:
+                        combined_pdf = (
+                            f"{prefix}\n\n[AI Pitch Deck Vision Analysis]\n{vision_block}"
+                        )
+                    else:
+                        combined_pdf = f"[AI Pitch Deck Vision Analysis]\n{vision_block}"
+                elif not combined_pdf.strip():
+                    if api_key and vision_error:
+                        short_err = vision_error.split(";")[0][:80]
+                        combined_pdf = (
+                            "[Image-based PDF — limited text extracted. "
+                            f"Vision analysis unavailable ({short_err}). "
+                            "Add submission notes or retry with a text-based export.]"
+                        )
+                        method = "image-pdf-limited"
+                    elif api_key:
+                        combined_pdf = (
+                            "[Image-based PDF — limited text extracted. "
+                            "No embedded text found; add submission notes for richer scoring.]"
+                        )
+                        method = "image-pdf-limited"
+                    else:
+                        combined_pdf = (
+                            "[Image-based PDF — limited text extracted. "
+                            "Enable Real LLM mode with an API key for AI slide analysis, "
+                            "or add submission notes.]"
+                        )
+                        method = "image-pdf-limited"
+                elif text_before_vision < PDF_MIN_TEXT_CHARS:
+                    combined_pdf = (
+                        f"{combined_pdf.strip()}\n\n"
+                        "[Note: Partial text only — this PDF appears image-heavy. "
+                        "Scoring uses available embedded text.]"
+                    )
+
+                preview_raw = combined_pdf.replace("\n", " ")
+                _pdf_method_labels = {
+                    "PyMuPDF-blocks": "PyMuPDF", "PyMuPDF-text": "PyMuPDF",
+                    "PyMuPDF-dict": "PyMuPDF", "PyMuPDF-words": "PyMuPDF",
+                    "PyMuPDF-html": "PyMuPDF", "PyMuPDF-raw": "PyMuPDF",
+                    "PyMuPDF-text-flags": "PyMuPDF", "pypdf": "pypdf",
+                    "tesseract-ocr": "OCR", "pdf-vision-llm": "Vision",
+                    "image-pdf-limited": "Image PDF (limited)",
+                }
+                method_display = _pdf_method_labels.get(method, method)
+                label = (
+                    f"[PDF: {fname} · {page_count or '?'} page(s) · {method_display}]"
+                )
                 parts.append(f"{label}\n{combined_pdf}")
                 summary.update({
                     "extraction_method": method,
                     "chars": len(combined_pdf),
-                    "pages": page_count,
-                    "preview": combined_pdf[:400].replace("\n", " "),
+                    "text_chars_before_vision": text_before_vision,
+                    "vision_pages": vision_pages_ok,
+                    "pages": page_count or None,
+                    "preview": preview_raw[:PDF_EXTRACTION_PREVIEW_CHARS],
+                    "vision_error": vision_error or "",
+                    "extraction_diagnostics": " · ".join(diagnostics)[:240],
                 })
+                status_detail = f"{summary['chars']:,} chars"
+                if text_before_vision and "vision" in method.lower():
+                    status_detail = (
+                        f"{text_before_vision:,} text + vision → {summary['chars']:,} chars"
+                    )
+                elif method == "image-pdf-limited":
+                    status_detail = f"{summary['chars']:,} chars (limited / image PDF)"
+                if status_slot:
+                    status_slot.markdown(
+                        f'<div style="font-size:12px;color:#6e7681;padding:2px 0;">'
+                        f'✓ PDF <strong>{_esc(fname)}</strong>: {status_detail} '
+                        f'via {_esc(method_display)}</div>',
+                        unsafe_allow_html=True,
+                    )
 
             # ── Image ─────────────────────────────────────────────────────────
             elif any(flower.endswith(x) for x in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
@@ -1697,6 +3665,109 @@ def extract_file_text(
     return "\n\n".join(parts), summaries
 
 
+def _append_submission_from_upload(
+    idea_name: str,
+    notes_txt: str,
+    init_stage: str,
+    uploaded,
+    use_vis: bool,
+    *,
+    status_slot=None,
+) -> tuple[str, int, int]:
+    """Create and append one submission. Returns (sid, file_count, chars_extracted)."""
+    ftypes = list({f.type.split("/")[-1].upper() for f in (uploaded or [])}) or ["—"]
+    extracted = ""
+    file_summaries: list = []
+    if uploaded:
+        _is_llm_mode = st.session_state.get("scoring_mode", "Simulated AI") == "Real LLM"
+        extracted, file_summaries = extract_file_text(
+            uploaded,
+            status_slot=status_slot,
+            use_llm_vision=(use_vis and _llm_ready() and _is_llm_mode),
+            api_key=_effective_llm_key(),
+            base_url=_FORGE_LLM_BASE_URL,
+            model=_FORGE_LLM_MODEL,
+        )
+    sid = f"FOS-{st.session_state.next_id}"
+    st.session_state.next_id += 1
+    total_chars = sum(s.get("chars", 0) for s in file_summaries)
+    st.session_state.submissions.append({
+        "id":             sid,
+        "name":           idea_name.strip(),
+        "file_type":      ", ".join(ftypes),
+        "status":         "New",
+        "stage":          init_stage,
+        "overall":        0.0,
+        "innovation":     0.0,
+        "feasibility":    0.0,
+        "categories":     {},
+        "auto_reject":    [],
+        "high_risk":      [],
+        "scored_at":      "",
+        "stage_summary":  "",
+        "stage_history":  [{"stage": init_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")}],
+        "submitted_at":   datetime.now().strftime("%Y-%m-%d"),
+        "notes":          notes_txt,
+        "extracted_text": extracted,
+        "file_summaries": file_summaries,
+        "extraction_note": _build_extraction_note(file_summaries),
+        "extraction_preview": extracted[:PDF_EXTRACTION_PREVIEW_CHARS] if extracted else "",
+    })
+    return sid, len(uploaded or []), total_chars
+
+
+def _render_upload_file_previews(uploaded, max_previews: int = 5) -> None:
+    """Thumbnail / icon previews for files selected before submit."""
+    if not uploaded:
+        return
+    import io as _preview_io
+    from PIL import Image as _PreviewImage
+
+    n_prev = min(len(uploaded), max_previews)
+    prev_cols = st.columns(n_prev)
+    _type_icons = {
+        "pdf": "📄", "mp4": "🎬", "mov": "🎬", "avi": "🎬",
+        "webm": "🎬", "txt": "📝", "md": "📝", "csv": "📊", "docx": "📝",
+    }
+    for pi, pf in enumerate(uploaded[:n_prev]):
+        with prev_cols[pi]:
+            pn = pf.name.lower()
+            pf.seek(0)
+            if any(pn.endswith(x) for x in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
+                try:
+                    raw = pf.read()
+                    img_prev = _PreviewImage.open(_preview_io.BytesIO(raw))
+                    st.image(img_prev, caption=pf.name[:22], use_container_width=True)
+                except Exception:
+                    st.markdown(f"🖼 `{pf.name[:20]}`")
+            else:
+                ext_p = pn.rsplit(".", 1)[-1] if "." in pn else "file"
+                icon_p = _type_icons.get(ext_p, "📎")
+                sz_p = round(pf.size / 1024, 1) if hasattr(pf, "size") else "?"
+                st.markdown(
+                    f'<div style="border:1px solid #21262d;border-radius:6px;'
+                    f'padding:8px 10px;text-align:center;font-size:12px;color:#8b949e;">'
+                    f'<div style="font-size:22px;margin-bottom:4px;">{icon_p}</div>'
+                    f'<div style="color:#e6edf3;font-weight:600;word-break:break-all;">{pf.name[:20]}</div>'
+                    f'<div style="font-size:10px;margin-top:2px;">{ext_p.upper()} · {sz_p} KB</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+            pf.seek(0)
+    if len(uploaded) > n_prev:
+        st.caption(f"+ {len(uploaded) - n_prev} more file(s)")
+
+
+def _reset_bulk_upload_form() -> None:
+    """Clear bulk-upload row widgets after a successful batch submit."""
+    old_ids = list(st.session_state.bulk_upload_row_ids)
+    st.session_state.bulk_upload_row_ids = [0]
+    st.session_state.bulk_upload_next_row_id = max(st.session_state.bulk_upload_next_row_id, 1)
+    for rid in old_ids:
+        for prefix in ("bulk_name_", "bulk_notes_", "bulk_files_"):
+            st.session_state.pop(f"{prefix}{rid}", None)
+
+
 def _ai_score_llm_pure(submission, rubric_data, api_key: str, base_url: str, model: str):
     """
     Pure LLM scoring — no st.session_state or module-level globals accessed.
@@ -1740,7 +3811,7 @@ INSTRUCTIONS:
     if notes.strip():
         user_parts.append(f"NOTES: {notes}")
     if extracted_text.strip():
-        user_parts.append(f"UPLOADED FILE CONTENT:\n{extracted_text[:6000]}")
+        user_parts.append(f"UPLOADED FILE CONTENT:\n{extracted_text[:EXTRACTED_TEXT_LLM_LIMIT]}")
     user_message = "\n\n".join(user_parts)
 
     payload = json.dumps({
@@ -1893,7 +3964,7 @@ INSTRUCTIONS:
     if notes.strip():
         user_parts.append(f"NOTES: {notes}")
     if extracted_text.strip():
-        user_parts.append(f"UPLOADED FILE CONTENT:\n{extracted_text[:6000]}")
+        user_parts.append(f"UPLOADED FILE CONTENT:\n{extracted_text[:EXTRACTED_TEXT_LLM_LIMIT]}")
     user_message = "\n\n".join(user_parts)
 
     payload = json.dumps({
@@ -2017,6 +4088,1153 @@ def route_scoring(submission, rubric_data):
         except Exception as e:
             return ai_score_submission(submission, rubric_data), f"LLM error ({e}) — fell back to Simulated scoring."
     return ai_score_submission(submission, rubric_data), None
+
+
+# ─── Criterion deep-dive (Expand) ────────────────────────────────────────────
+
+CRITERION_DETAIL_TEXT_LIMIT = 5000
+CRITERION_DETAIL_NOTES_LIMIT = 1500
+
+_CRITERION_DETAIL_SYSTEM = """You are ForgeOS, a senior physical-goods innovation analyst advising investors and innovation directors.
+Write an expert deep-dive for ONE rubric criterion only. Markdown only — use exactly these ## headings:
+
+## Summary
+Open by restating the assigned score's one-line justification (verbatim or near-verbatim). Add one sentence on what this score means for screening this idea.
+
+## Score Rationale
+Write 3–4 thoughtful paragraphs explaining WHY this exact score (1–10) was assigned. Use explicit chain-of-thought reasoning (e.g., "After reviewing the extracted content…", "The submission mentions X but lacks Y, which is why this scores N rather than N+2"). Reference weight %, evidence rating, sub-factors, and what evidence would raise or lower the score. Be analytical, not promotional.
+
+## Rubric Anchor Analysis
+For EACH band — **1–3**, **4–6**, and **7–10** — quote the supplied anchor language, then explain in 2–3 sentences whether the submission aligns, partially aligns, or fails to align. Conclude why the assigned score belongs in its band and not an adjacent band.
+
+## Evidence from Submission
+4–6 bullets citing specific passages from notes and extracted files. Use > blockquotes for direct quotes. If evidence is thin, state precisely what is missing.
+
+## Flags & Highlights
+List triggered red flags, rubric watch items, and standout positives for this criterion only.
+
+Rules: use ONLY supplied data; do not invent revenue, customers, patents, or test results; professional investor-grade tone; 450–650 words total."""
+
+
+def _classify_llm_error(exc: Exception) -> str:
+    """Return 'timeout' or 'error' for user-facing fallback messaging."""
+    import socket
+    import urllib.error
+
+    if isinstance(exc, socket.timeout):
+        return "timeout"
+    reason = getattr(exc, "reason", None)
+    if isinstance(reason, socket.timeout):
+        return "timeout"
+    if isinstance(exc, urllib.error.URLError):
+        r = str(reason or exc).lower()
+        if "timed out" in r or "timeout" in r:
+            return "timeout"
+    msg = str(exc).lower()
+    if "timed out" in msg or "timeout" in msg:
+        return "timeout"
+    return "error"
+
+
+def _criterion_detail_fallback_message(exc: Exception | None = None) -> str:
+    """Clean, professional notice when structured fallback is shown instead of LLM."""
+    if exc is None:
+        return (
+            "Structured deep-dive generated from submission evidence and rubric anchors. "
+            "Add an API key in Rubric Settings for AI-authored analysis."
+        )
+    if _classify_llm_error(exc) == "timeout":
+        return (
+            "AI analysis timed out — showing ForgeOS structured deep-dive below. "
+            "Try **Regenerate** for a fresh attempt."
+        )
+    return (
+        "AI analysis unavailable — showing ForgeOS structured deep-dive below."
+    )
+
+
+def _crit_key_slug(name: str) -> str:
+    """Safe Streamlit widget key fragment from criterion name."""
+    return re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:48]
+
+
+def _criterion_detail_cache_key(sub_id: str, criterion_name: str) -> str:
+    return f"{sub_id}::{criterion_name}"
+
+
+def _close_memo_dialog() -> None:
+    """Reset memo modal state without touching cached memo content."""
+    st.session_state.memo_sub_id = None
+    st.session_state.memo_needs_generate = False
+    st.session_state.memo_force_regenerate = False
+
+
+def _close_criterion_detail_dialog() -> None:
+    """Close the criterion deep-dive modal."""
+    _close_all_criterion_deep_dives()
+
+
+def _criterion_panel_key(sub_id: str, criterion_name: str) -> str:
+    """Unique key for one criterion deep-dive (session + widget identity)."""
+    return f"deep_dive_{sub_id}_{_crit_key_slug(criterion_name)}"
+
+
+def _is_criterion_deep_dive_open(sub_id: str, criterion_name: str) -> bool:
+    panel_key = _criterion_panel_key(sub_id, criterion_name)
+    return st.session_state.get("criterion_deep_dive_active") == panel_key
+
+
+def _open_criterion_deep_dive(sub_id: str, criterion_name: str) -> None:
+    """Open criterion deep-dive modal; clear memo so features stay isolated."""
+    _close_memo_dialog()
+    st.session_state.criterion_deep_dive_active = _criterion_panel_key(sub_id, criterion_name)
+    st.session_state.criterion_deep_dive_sub_id = sub_id
+    st.session_state.criterion_deep_dive_criterion = criterion_name
+    st.session_state.criterion_detail_force = True
+
+
+def _close_all_criterion_deep_dives() -> None:
+    st.session_state.criterion_deep_dive_active = None
+    st.session_state.criterion_deep_dive_sub_id = None
+    st.session_state.criterion_deep_dive_criterion = None
+    st.session_state.criterion_detail_force = False
+
+
+def _close_criterion_deep_dives_for_submission(sub_id: str) -> None:
+    if st.session_state.get("criterion_deep_dive_sub_id") == sub_id:
+        _close_all_criterion_deep_dives()
+
+
+def _clear_criterion_detail_cache(sub_id: str) -> None:
+    """Drop cached deep-dives when a submission is re-scored or deleted."""
+    prefix = f"{sub_id}::"
+    for key in list(st.session_state.criterion_detail_cache.keys()):
+        if key.startswith(prefix):
+            del st.session_state.criterion_detail_cache[key]
+
+
+def _score_band_from_10(score_10: float) -> str:
+    if score_10 <= 3:
+        return "1-3"
+    if score_10 <= 6:
+        return "4-6"
+    return "7-10"
+
+
+def _find_rubric_criterion(criterion_name: str, rubric_data: dict) -> dict:
+    for crit in rubric_data.get("criteria", []):
+        if crit.get("criterion") == criterion_name:
+            return crit
+    return {}
+
+
+def _extract_evidence_snippets(
+    text: str,
+    keywords: list[str] | None = None,
+    max_snippets: int = 6,
+    min_len: int = 30,
+) -> list[str]:
+    """Pull quotable sentences from notes or extracted file content."""
+    if not text or not text.strip():
+        return []
+    cleaned = re.sub(r"\[PDF:[^\]]+\]", "", text)
+    cleaned = re.sub(r"\[Page \d+[^\]]*\]", "", cleaned)
+    cleaned = re.sub(r"\[Image-based PDF[^\]]*\]", "", cleaned)
+    cleaned = re.sub(r"\[AI Pitch Deck Vision Analysis\]", "", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    parts = re.split(r"(?<=[.!?])\s+", cleaned)
+    kw = [k.lower() for k in (keywords or []) if k and len(k) > 2]
+    ranked: list[tuple[int, str]] = []
+    for part in parts:
+        part = part.strip().strip('"')
+        if len(part) < min_len:
+            continue
+        if part.startswith("(") and "failed" in part.lower():
+            continue
+        if part.startswith("[") and "unavailable" in part.lower():
+            continue
+        hit = sum(1 for k in kw if k in part.lower()) if kw else 0
+        ranked.append((hit, part[:280]))
+    ranked.sort(key=lambda x: (-x[0], -len(x[1])))
+    seen: set[str] = set()
+    snippets: list[str] = []
+    for _, part in ranked:
+        key = part[:60].lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        snippets.append(part)
+        if len(snippets) >= max_snippets:
+            break
+    return snippets
+
+
+def _build_criterion_detail_user_message(
+    submission: dict,
+    criterion_name: str,
+    cd: dict,
+    rubric_crit: dict,
+) -> str:
+    """Rich LLM context for one criterion deep-dive."""
+    s10 = cd.get("score_10", round(cd.get("score", 0) / 10, 1))
+    band = _score_band_from_10(float(s10))
+    anchors = rubric_crit.get("scoring_anchors", {})
+    definition = (
+        rubric_crit.get("definition")
+        or rubric_crit.get("description")
+        or ""
+    )
+    sub_factors = rubric_crit.get("sub_factors", [])
+    rf_rubric = rubric_crit.get("red_flags", [])
+    gates = rubric_crit.get("auto_reject_gates") or rubric_crit.get("gating") or ""
+
+    lines = [
+        f"CRITERION: {criterion_name}",
+        f"ASSIGNED SCORE: {s10}/10",
+        f"ASSIGNED BAND: {band}",
+        f"WEIGHT: {cd.get('weight', '—')}%",
+        f"EVIDENCE RATING: {cd.get('evidence', 'Partial')}",
+        f"ONE-LINE JUSTIFICATION: {(cd.get('justification') or '').strip()}",
+        f"TRIGGERED RED FLAGS: {', '.join(cd.get('red_flags', [])) or 'none'}",
+        "",
+        f"CRITERION DEFINITION: {definition[:500]}",
+        f"SUB-FACTORS: {', '.join(sub_factors) if sub_factors else '—'}",
+        f"RUBRIC RED FLAGS (watch list): {', '.join(rf_rubric) if rf_rubric else 'none'}",
+    ]
+    if gates:
+        lines.append(f"GATING: {str(gates)[:220]}")
+    lines.extend(["", "SCORING ANCHORS (use all three in your analysis):"])
+    for anchor_band in ("1-3", "4-6", "7-10"):
+        anchor_txt = anchors.get(anchor_band, "")
+        marker = " ← ASSIGNED" if anchor_band == band else ""
+        lines.append(f"  {anchor_band}{marker}: {anchor_txt[:320]}")
+
+    lines.extend([
+        "",
+        f"IDEA: {submission.get('name', '')}",
+        f"SUBMISSION ID: {submission.get('id', '')}",
+    ])
+
+    notes = submission.get("notes", "").strip()
+    if notes:
+        lines.extend(["", "SUBMISSION NOTES:", notes[:CRITERION_DETAIL_NOTES_LIMIT]])
+
+    extracted = submission.get("extracted_text", "").strip()
+    if extracted:
+        lines.extend(["", "EXTRACTED FILE CONTENT:", extracted[:CRITERION_DETAIL_TEXT_LIMIT]])
+
+    return "\n".join(lines)
+
+
+def _anchor_alignment_paragraph(
+    band: str,
+    s10: float,
+    anchor_txt: str,
+    has_evidence: bool,
+) -> str:
+    """One paragraph per anchor band for structured fallback."""
+    assigned = _score_band_from_10(s10)
+    label = f"**{band}**"
+    anchor_quote = f'*"{anchor_txt[:200]}{"…" if len(anchor_txt) > 200 else ""}"*' if anchor_txt else "*No anchor text supplied.*"
+
+    if band == assigned:
+        return (
+            f"{label} {anchor_quote} — **This is the assigned band.** "
+            f"The score of **{s10}/10** fits here because the available evidence "
+            f"{'supports' if has_evidence else 'only partially supports'} the rubric language above. "
+            f"A higher band would require stronger, criterion-specific proof; a lower band would imply "
+            f"more severe gaps or red-flag triggers than observed."
+        )
+    if band == "7-10" and s10 < 7:
+        return (
+            f"{label} {anchor_quote} — The submission **does not yet meet** this band. "
+            f"Missing proof points or unresolved risks prevent a 7+ score despite any partial strengths."
+        )
+    if band == "1-3" and s10 > 3:
+        return (
+            f"{label} {anchor_quote} — The submission **clears** this low band; "
+            f"fundamental disqualifiers for this criterion were not the primary driver of the score."
+        )
+    if band == "4-6" and s10 > 6:
+        return (
+            f"{label} {anchor_quote} — The submission **exceeds** this mid band, "
+            f"showing above-average alignment with the criterion relative to a typical 4–6 placement."
+        )
+    if band == "4-6" and s10 <= 3:
+        return (
+            f"{label} {anchor_quote} — The submission **falls below** this band, "
+            f"indicating material weakness on this criterion."
+        )
+    return (
+        f"{label} {anchor_quote} — Partial alignment only; the assigned score reflects "
+        f"mixed signals rather than a clean fit for this anchor band."
+    )
+
+
+def _score_reasoning_paragraphs(
+    criterion_name: str,
+    name: str,
+    s10: float,
+    band: str,
+    justification: str,
+    cd: dict,
+    snippets: list[str],
+    sub_factors: list[str],
+) -> str:
+    """Multi-paragraph chain-of-thought for structured fallback."""
+    ev = cd.get("evidence", "Partial")
+    wt = cd.get("weight", "—")
+    rf = cd.get("red_flags", [])
+
+    p1 = (
+        f"After reviewing the submission for **{name}**, ForgeOS assigned **{s10}/10** on "
+        f"**{criterion_name}** (weight **{wt}%**). The screening justification states: "
+        f"*\"{justification}\"*. This one-line summary reflects an evidence rating of **{ev}** "
+        f"and places the idea in rubric anchor band **{band}**."
+    )
+
+    evidence_clause = (
+        "Specific passages in the notes and extracted files speak directly to this criterion."
+        if snippets
+        else "However, little criterion-specific text was found in notes or extracted files, limiting confidence."
+    )
+    sf_clause = (
+        f" Sub-factors evaluated include: {', '.join(sub_factors[:5])}."
+        if sub_factors else ""
+    )
+    p2 = (
+        f"{evidence_clause}{sf_clause} "
+        f"Where the submission provides concrete detail, it supports the mid-to-upper range of the assigned band; "
+        f"where detail is absent, the score is capped rather than upgraded."
+    )
+
+    if s10 >= 7:
+        uplift = "To reach 9–10, the team would need unmistakable proof (metrics, validation, or third-party confirmation) tied to each sub-factor."
+        lower = "A drop below 7 would follow from triggered red flags or materially insufficient evidence."
+    elif s10 >= 4:
+        uplift = "Raising this to 7+ would require closing documented gaps with verifiable traction, specs, or customer proof."
+        lower = f"A score closer to 3 would imply severe misalignment or red-flag triggers{' — including: ' + ', '.join(rf) if rf else ''}."
+    else:
+        uplift = "Even moving to the 4–6 band would require addressing the core weaknesses noted above with new evidence."
+        lower = "Further deterioration would follow if gating red flags materialize or due diligence reveals critical omissions."
+
+    p3 = (
+        f"In chain-of-thought terms: the submission mentions relevant themes for **{criterion_name}**, "
+        f"but the combination of evidence quality (**{ev}**) and rubric anchor language for band **{band}** "
+        f"is why the score lands at **{s10}** rather than a full point higher or lower. {uplift} {lower}"
+    )
+
+    return f"{p1}\n\n{p2}\n\n{p3}"
+
+
+def _generate_criterion_detail_local(
+    submission: dict,
+    criterion_name: str,
+    rubric_data: dict,
+) -> str:
+    """Structured deep-dive when LLM is unavailable or times out."""
+    cd = submission.get("categories", {}).get(criterion_name, {})
+    rubric_crit = _find_rubric_criterion(criterion_name, rubric_data)
+    s10 = cd.get("score_10", round(cd.get("score", 0) / 10, 1))
+    band = _score_band_from_10(float(s10))
+    anchors = rubric_crit.get("scoring_anchors", {})
+
+    combined = (submission.get("notes", "") + "\n" + submission.get("extracted_text", "")).strip()
+    sub_factors = rubric_crit.get("sub_factors", [])
+    keywords = [criterion_name] + list(sub_factors)
+    snippets = _extract_evidence_snippets(combined, keywords=keywords, max_snippets=6)
+    name = submission.get("name", "this submission")
+    justification = (cd.get("justification") or "").strip()
+    has_evidence = bool(snippets)
+
+    summary = (
+        f"*{justification or 'No one-line justification recorded.'}* "
+        f"For pipeline review, **{s10}/10** on **{criterion_name}** (weight **{cd.get('weight', '—')}%**) "
+        f"signals a **{band}**-band placement — "
+        f"{'a candidate for advancement with validation' if float(s10) >= 7 else 'mixed signals requiring diligence' if float(s10) >= 4 else 'material concern before shortlist consideration'}."
+    )
+
+    rationale = _score_reasoning_paragraphs(
+        criterion_name, name, float(s10), band, justification, cd, snippets, sub_factors
+    )
+
+    anchor_blocks = [
+        _anchor_alignment_paragraph(b, float(s10), anchors.get(b, ""), has_evidence)
+        for b in ("1-3", "4-6", "7-10")
+    ]
+    anchor_section = "\n\n".join(anchor_blocks)
+
+    if snippets:
+        quote_block = "\n".join(f"- > \"{s}\"" for s in snippets)
+        evidence_note = ""
+    else:
+        quote_block = "- > *No direct quotes matched this criterion in notes or extracted files.*"
+        evidence_note = (
+            "\n\n*After reviewing available material, criterion-specific evidence is thin. "
+            "Add submission notes or ensure pitch-deck text extraction succeeded for richer Expand views.*"
+        )
+
+    rf_rubric = rubric_crit.get("red_flags", [])
+    rf_hit = cd.get("red_flags", [])
+    pos_highlights: list[str] = []
+    if float(s10) >= 7:
+        pos_highlights.append(
+            f"Score **{s10}/10** aligns with the **{band}** anchor — above typical sector baseline for this criterion."
+        )
+    if cd.get("evidence") == "Sufficient":
+        pos_highlights.append("Evidence rated **Sufficient** — uploaded material supports rubric review.")
+    if snippets:
+        pos_highlights.append(
+            f"**{len(snippets)}** quotable passage(s) in notes/files directly reference this criterion or its sub-factors."
+        )
+    if not rf_hit and float(s10) >= 5:
+        pos_highlights.append("No criterion-specific red flags triggered in automated screening.")
+
+    flag_lines: list[str] = []
+    for rf in rf_hit:
+        flag_lines.append(f"- **Triggered red flag:** {rf}")
+    for rf in rf_rubric:
+        if rf not in rf_hit and float(s10) <= 5:
+            flag_lines.append(f"- **Watch item:** {rf} — not auto-flagged but score warrants scrutiny")
+    if not flag_lines:
+        flag_lines.append("- No active red flags for this criterion.")
+
+    return f"""## Summary
+
+{summary}
+
+## Score Rationale
+
+{rationale}
+
+## Rubric Anchor Analysis
+
+{anchor_section}
+
+## Evidence from Submission
+
+{quote_block}{evidence_note}
+
+## Flags & Highlights
+
+**Red flags & watch items:**
+{chr(10).join(flag_lines)}
+
+**Standout positives:**
+{chr(10).join(f'- {h}' for h in pos_highlights) if pos_highlights else '- No standout positives at this score level.'}
+"""
+
+
+def _generate_criterion_detail_llm(
+    submission: dict,
+    criterion_name: str,
+    rubric_data: dict,
+    api_key: str,
+    base_url: str,
+    model: str,
+) -> str:
+    cd = submission.get("categories", {}).get(criterion_name, {})
+    rubric_crit = _find_rubric_criterion(criterion_name, rubric_data)
+    user_message = _build_criterion_detail_user_message(submission, criterion_name, cd, rubric_crit)
+    return _llm_chat_text(
+        _CRITERION_DETAIL_SYSTEM,
+        user_message,
+        api_key,
+        base_url,
+        model,
+        temperature=0.35,
+        max_tokens=1600,
+        timeout=55,
+    )
+
+
+def generate_criterion_detail(submission: dict, criterion_name: str, rubric_data: dict):
+    """
+    Generate expanded criterion analysis. Returns (markdown, source_label, warning_or_none).
+    Uses LLM when an API key is configured; otherwise structured local deep-dive.
+    On timeout or LLM error, falls back to structured analysis with a clean user message.
+    """
+    if _llm_ready():
+        try:
+            md = _generate_criterion_detail_llm(
+                submission,
+                criterion_name,
+                rubric_data,
+                _effective_llm_key(),
+                _FORGE_LLM_BASE_URL,
+                _FORGE_LLM_MODEL,
+            )
+            return md, "llm", None
+        except Exception as exc:
+            md = _generate_criterion_detail_local(submission, criterion_name, rubric_data)
+            return md, "structured", _criterion_detail_fallback_message(exc)
+    md = _generate_criterion_detail_local(submission, criterion_name, rubric_data)
+    return md, "structured", _criterion_detail_fallback_message(None)
+
+
+def _ensure_criterion_detail_cached(sub_id: str, criterion_name: str, rubric_data: dict) -> None:
+    """Generate and cache deep-dive when dialog opens or user clicks Regenerate."""
+    cache_key = _criterion_detail_cache_key(sub_id, criterion_name)
+    if cache_key in st.session_state.criterion_detail_cache and not st.session_state.criterion_detail_force:
+        return
+    sub = next((s for s in st.session_state.submissions if s["id"] == sub_id), None)
+    if not sub:
+        return
+    md, source, warning = generate_criterion_detail(sub, criterion_name, rubric_data)
+    st.session_state.criterion_detail_cache[cache_key] = {
+        "markdown": md,
+        "source": source,
+        "warning": warning,
+        "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    }
+    st.session_state.criterion_detail_force = False
+
+
+def _criterion_detail_dialog_body():
+    """Modal body for expanded criterion analysis."""
+    sub_id = st.session_state.get("criterion_deep_dive_sub_id")
+    crit_name = st.session_state.get("criterion_deep_dive_criterion")
+    panel_key = st.session_state.get("criterion_deep_dive_active")
+    if not sub_id or not crit_name or not panel_key:
+        return
+
+    sub = next((s for s in st.session_state.submissions if s["id"] == sub_id), None)
+    if not sub:
+        st.error("Submission not found.")
+        if st.button("Close", key=f"crit_detail_close_missing_{panel_key}"):
+            _close_all_criterion_deep_dives()
+            st.rerun()
+        return
+
+    cd = sub.get("categories", {}).get(crit_name, {})
+    s10 = cd.get("score_10", round(cd.get("score", 0) / 10, 1))
+    score_clr = score_hex(cd.get("score", 0))
+
+    st.markdown(
+        f'<div style="display:flex;align-items:center;justify-content:space-between;'
+        f'margin-bottom:12px;">'
+        f'<div><div style="font-size:18px;font-weight:700;color:var(--text-1);">'
+        f'{_esc(crit_name)}</div>'
+        f'<div style="font-size:12px;color:var(--text-3);margin-top:4px;">'
+        f'{_esc(sub.get("name", ""))} · {_esc(sub_id)}</div></div>'
+        f'<div style="font-size:22px;font-weight:800;color:{score_clr};">{s10}/10</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    hdr1, hdr2 = st.columns([1, 1])
+    with hdr1:
+        if st.button("↻ Regenerate", key=f"{panel_key}_regen", use_container_width=True):
+            st.session_state.criterion_detail_force = True
+            st.session_state.criterion_detail_cache.pop(
+                _criterion_detail_cache_key(sub_id, crit_name), None
+            )
+            st.rerun()
+    with hdr2:
+        if st.button("Close", key=f"{panel_key}_close", use_container_width=True):
+            _close_all_criterion_deep_dives()
+            st.rerun()
+
+    with st.spinner("Generating detailed analysis…"):
+        _ensure_criterion_detail_cached(sub_id, crit_name, rubric)
+
+    cached = st.session_state.criterion_detail_cache.get(
+        _criterion_detail_cache_key(sub_id, crit_name)
+    )
+    if not cached:
+        st.error("Could not generate analysis. Please try **Regenerate**.")
+        return
+
+    if cached.get("warning"):
+        st.info(cached["warning"])
+
+    src_lbl = "AI deep-dive" if cached.get("source") == "llm" else "ForgeOS structured analysis"
+    st.caption(f"Source: {src_lbl} · Generated {cached.get('generated_at', '')}")
+    st.markdown(cached["markdown"])
+
+
+if hasattr(st, "dialog"):
+    try:
+        @st.dialog("Criterion Deep Dive", width="large")
+        def _criterion_detail_dialog():
+            _criterion_detail_dialog_body()
+    except TypeError:
+        @st.dialog("Criterion Deep Dive")
+        def _criterion_detail_dialog():
+            _criterion_detail_dialog_body()
+else:
+    def _criterion_detail_dialog():
+        st.markdown("#### Criterion Deep Dive")
+        _criterion_detail_dialog_body()
+
+
+def _maybe_open_criterion_deep_dive_dialog():
+    """Open criterion deep-dive modal when a criterion Expand is active."""
+    if not st.session_state.get("criterion_deep_dive_active"):
+        return
+    if hasattr(st, "dialog"):
+        _criterion_detail_dialog()
+    else:
+        with st.container(border=True):
+            _criterion_detail_dialog_body()
+
+
+# ─── Investment memo generation ──────────────────────────────────────────────
+
+_MEMO_SYSTEM_PROMPT = """You are ForgeOS, a senior venture analyst and physical-goods innovation strategist.
+Write a concise, investor-ready Executive Summary / Investment Memo in polished Markdown.
+
+AUDIENCE: Seed/Series A investors, corporate innovation teams, and manufacturing partners.
+
+TONE: Professional, direct, evidence-based. No hype or unsupported superlatives.
+
+STRUCTURE (use these exact section headings as ## headers):
+## Executive Summary
+- Idea name as # title, then a compelling one-line tagline
+- 2–3 paragraph overview of the opportunity
+
+## Score Overview
+- Overall ForgeOS score (/100) and investment posture (Strong / Promising / Needs Work / Auto-Reject)
+- Top 3 strengths (highest-scoring rubric criteria with scores)
+- Key risks and red flags (gating flags, low criteria, criterion red flags)
+
+## Rubric Breakdown
+- All 8 criteria: name, score /10, weight %, and 1–2 sentence justification each (use provided data)
+
+## Pipeline & Stage Progress
+- Current stage and status
+- Brief synthesis of stage history and prior stage outputs (if provided)
+
+## Evidence & Multimodal Highlights
+- Bullet key points from submission notes and extracted file content
+- Call out data gaps honestly
+
+## Recommended Next Steps
+- 4–6 numbered, actionable next steps for the innovation team
+- Include regulatory, manufacturing, or go-to-market items where relevant
+
+## Investment Considerations
+- Short paragraph on fit, timing, and what would increase conviction
+
+RULES:
+- Output ONLY valid Markdown (no JSON, no code fences wrapping the whole doc).
+- Ground every claim in the supplied submission data; do not invent patents, revenue, or customers.
+- If data is missing, state what evidence is needed.
+- Keep total length roughly 800–1,200 words."""
+
+
+def _llm_chat_text(
+    system_prompt: str,
+    user_message: str,
+    api_key: str,
+    base_url: str,
+    model: str,
+    *,
+    temperature: float = 0.35,
+    max_tokens: int = 4500,
+    timeout: int = 90,
+) -> str:
+    """OpenAI-compatible chat completion returning assistant text."""
+    payload = json.dumps({
+        "model": model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        url=f"{base_url.rstrip('/')}/chat/completions",
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        api_result = json.loads(resp.read().decode("utf-8"))
+    content = api_result["choices"][0]["message"]["content"].strip()
+    # Strip accidental markdown fences
+    if content.startswith("```"):
+        lines = content.split("\n")
+        if lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        content = "\n".join(lines).strip()
+    return content
+
+
+def _build_memo_context_payload(submission: dict, rubric_data: dict) -> str:
+    """Assemble structured context for memo generation (LLM or local)."""
+    cats = submission.get("categories") or {}
+    lines = [
+        f"SUBMISSION ID: {submission.get('id', '')}",
+        f"IDEA NAME: {submission.get('name', '')}",
+        f"STATUS: {submission.get('status', '')}",
+        f"PIPELINE STAGE: {submission.get('stage', '')}",
+        f"SUBMITTED: {submission.get('submitted_at', '')}",
+        f"FILE TYPES: {submission.get('file_type', '')}",
+        "",
+        f"OVERALL SCORE: {submission.get('overall', 0)}/100",
+        f"INNOVATION SCORE: {submission.get('innovation', 0)}/100",
+        f"FEASIBILITY SCORE: {submission.get('feasibility', 0)}/100",
+        f"SCORED AT: {submission.get('scored_at', 'N/A')}",
+        "",
+    ]
+
+    if submission.get("auto_reject"):
+        lines.append("AUTO-REJECT GATES:")
+        lines.extend(f"  - {f}" for f in submission["auto_reject"])
+        lines.append("")
+    if submission.get("high_risk"):
+        lines.append("HIGH-RISK FLAGS:")
+        lines.extend(f"  - {f}" for f in submission["high_risk"])
+        lines.append("")
+
+    sl_cat = _shortlist_category_for(submission.get("id", ""))
+    if sl_cat:
+        lines.append(f"SHORTLIST FOLDER: {sl_cat}")
+        lines.append("")
+
+    notes = submission.get("notes", "").strip()
+    if notes:
+        lines.append("SUBMISSION NOTES:")
+        lines.append(notes[:8000])
+        lines.append("")
+
+    extracted = submission.get("extracted_text", "").strip()
+    if extracted:
+        lines.append("EXTRACTED FILE CONTENT (multimodal):")
+        lines.append(extracted[:EXTRACTED_TEXT_LLM_LIMIT])
+        lines.append("")
+
+    for fs in submission.get("file_summaries") or []:
+        lines.append(
+            f"FILE: {fs.get('name', '?')} | type={fs.get('file_type')} | "
+            f"method={fs.get('extraction_method')} | chars={fs.get('chars', 0)}"
+        )
+        if fs.get("preview"):
+            lines.append(f"  Preview: {str(fs['preview'])[:500]}")
+    lines.append("")
+
+    lines.append("RUBRIC CRITERIA SCORES:")
+    for crit in rubric_data.get("criteria", []):
+        key = crit["criterion"]
+        cd = cats.get(key, {})
+        s10 = cd.get("score_10", "—")
+        wt = crit.get("weight", 0)
+        just = cd.get("justification", "No justification recorded.")
+        rf = cd.get("red_flags") or []
+        lines.append(f"- {key} (weight {wt}%): {s10}/10")
+        lines.append(f"  Justification: {just}")
+        if rf:
+            lines.append(f"  Red flags: {', '.join(rf)}")
+    lines.append("")
+
+    hist = submission.get("stage_history") or []
+    if hist:
+        lines.append("STAGE HISTORY:")
+        for e in hist:
+            lines.append(f"  - {e.get('stage')} ({e.get('moved_at', '')})")
+        lines.append("")
+
+    summ = submission.get("stage_summary", "")
+    if summ:
+        # Strip HTML tags for LLM context
+        plain = re.sub(r"<[^>]+>", " ", summ)
+        plain = re.sub(r"\s+", " ", plain).strip()
+        lines.append("CURRENT STAGE AI SUMMARY (plain text):")
+        lines.append(plain[:4000])
+        lines.append("")
+
+    lines.append(f"RUBRIC NAME: {rubric_data.get('rubric_name', 'ForgeOS Rubric')}")
+    return "\n".join(lines)
+
+
+def _generate_investment_memo_local(submission: dict, rubric_data: dict) -> str:
+    """Deterministic investor memo from scored data (no LLM)."""
+    name = submission.get("name", "Untitled Idea")
+    overall = submission.get("overall", 0)
+    cats = submission.get("categories") or {}
+    blabel, _, _ = forge_badge(submission)
+
+    ranked = sorted(
+        cats.items(),
+        key=lambda x: x[1].get("score_10", 0),
+        reverse=True,
+    )
+    strengths = ranked[:3]
+    weaknesses = sorted(cats.items(), key=lambda x: x[1].get("score_10", 0))[:3]
+
+    tagline = (submission.get("notes") or "").strip().split("\n")[0][:160]
+    if not tagline:
+        tagline = f"Physical-goods innovation evaluated at {overall}/100 on ForgeOS Extensive Rubric v2."
+
+    md = [f"# {name}", "", f"*{tagline}*", "", "---", ""]
+    md.append("## Executive Summary")
+    md.append("")
+    md.append(
+        f"**{name}** is a physical-goods innovation currently in the **{submission.get('stage', 'Intake')}** "
+        f"pipeline stage with ForgeOS overall score **{overall}/100** ({blabel or 'Unrated'}). "
+    )
+    notes = submission.get("notes", "").strip()
+    if notes:
+        md.append(notes[:600] + ("…" if len(notes) > 600 else ""))
+    else:
+        md.append("Detailed founder notes were not provided; assessment relies on scoring and file extracts.")
+    md.append("")
+
+    md.append("## Score Overview")
+    md.append("")
+    md.append(f"| Metric | Value |")
+    md.append(f"|--------|-------|")
+    md.append(f"| Overall | **{overall}/100** |")
+    md.append(f"| Innovation | {submission.get('innovation', 0)}/100 |")
+    md.append(f"| Feasibility | {submission.get('feasibility', 0)}/100 |")
+    md.append(f"| Posture | {blabel or '—'} |")
+    md.append("")
+
+    md.append("### Top strengths")
+    for k, cd in strengths:
+        md.append(f"- **{k}** — {cd.get('score_10', '—')}/10: {cd.get('justification', '')[:200]}")
+    md.append("")
+
+    md.append("### Risks & red flags")
+    if submission.get("auto_reject"):
+        for f in submission["auto_reject"]:
+            md.append(f"- ⛔ {f}")
+    if submission.get("high_risk"):
+        for f in submission["high_risk"]:
+            md.append(f"- ⚠ {f}")
+    for k, cd in weaknesses:
+        for rf in cd.get("red_flags") or []:
+            md.append(f"- **{k}**: {rf}")
+    if not submission.get("auto_reject") and not submission.get("high_risk"):
+        for k, cd in weaknesses:
+            md.append(f"- **{k}** — {cd.get('score_10', '—')}/10 (relative weakness)")
+    md.append("")
+
+    md.append("## Rubric Breakdown")
+    md.append("")
+    for crit in rubric_data.get("criteria", []):
+        key = crit["criterion"]
+        cd = cats.get(key, {})
+        md.append(f"### {key} ({crit.get('weight', 0)}%)")
+        md.append(f"**Score:** {cd.get('score_10', '—')}/10 · Evidence: {cd.get('evidence', '—')}")
+        md.append("")
+        md.append(cd.get("justification", "—"))
+        md.append("")
+
+    md.append("## Pipeline & Stage Progress")
+    md.append("")
+    md.append(f"- **Current stage:** {submission.get('stage', '—')}")
+    md.append(f"- **Status:** {submission.get('status', '—')}")
+    for e in submission.get("stage_history") or []:
+        md.append(f"- {e.get('stage')} — {e.get('moved_at', '')}")
+    md.append("")
+
+    md.append("## Evidence & Multimodal Highlights")
+    md.append("")
+    for fs in submission.get("file_summaries") or []:
+        md.append(f"- **{fs.get('name', 'file')}** ({fs.get('file_type', 'other')}): "
+                  f"{fs.get('chars', 0):,} chars via {fs.get('extraction_method', '—')}")
+    ext = submission.get("extracted_text", "").strip()
+    if ext:
+        md.append("")
+        md.append("```")
+        md.append(ext[:1500] + ("…" if len(ext) > 1500 else ""))
+        md.append("```")
+    else:
+        md.append("- No extracted file content on record.")
+    md.append("")
+
+    md.append("## Recommended Next Steps")
+    md.append("")
+    stage = submission.get("stage", "Intake")
+    steps = [
+        "Validate top weakness criterion with primary data (customer interviews or lab test).",
+        "Confirm manufacturing path and BOM at target MOQ with at least one supplier quote.",
+        "Close regulatory/compliance gaps flagged in rubric before channel expansion.",
+    ]
+    if stage in ("Intake", "Concept"):
+        steps.insert(0, "Complete technical feasibility prototype and attach results to submission.")
+    if submission.get("auto_reject"):
+        steps.insert(0, "Address auto-reject gates before re-submitting for investment review.")
+    for i, s in enumerate(steps[:6], 1):
+        md.append(f"{i}. {s}")
+    md.append("")
+
+    md.append("## Investment Considerations")
+    md.append("")
+    if overall >= THRESHOLDS["green"] and not submission.get("auto_reject"):
+        md.append(
+            "Score profile supports continued diligence. Prioritize evidence that de-risks "
+            "manufacturing scale-up and confirms differentiated IP or process."
+        )
+    elif submission.get("auto_reject"):
+        md.append(
+            "Auto-reject gates indicate the concept does not yet meet minimum innovation, "
+            "feasibility, or evidence thresholds for capital deployment."
+        )
+    else:
+        md.append(
+            "Promising elements exist but conviction requires stronger evidence on weaker "
+            "criteria and clearer unit economics at volume."
+        )
+    md.append("")
+    md.append(f"*Generated by ForgeOS · {datetime.now().strftime('%Y-%m-%d %H:%M')} · Structured export*")
+
+    return "\n".join(md)
+
+
+def _generate_investment_memo_llm(
+    submission: dict,
+    rubric_data: dict,
+    api_key: str,
+    base_url: str,
+    model: str,
+) -> str:
+    """LLM-authored investment memo (Markdown)."""
+    context = _build_memo_context_payload(submission, rubric_data)
+    user_msg = (
+        "Generate the investment memo for this ForgeOS submission. "
+        "Use only the data below.\n\n"
+        f"{context}"
+    )
+    return _llm_chat_text(
+        _MEMO_SYSTEM_PROMPT,
+        user_msg,
+        api_key,
+        base_url,
+        model,
+        temperature=0.35,
+        max_tokens=4500,
+        timeout=90,
+    )
+
+
+def generate_investment_memo(submission: dict, rubric_data: dict):
+    """
+    Generate memo markdown. Returns (markdown, source_label, warning_or_none).
+    source_label is 'llm' or 'structured'.
+    """
+    if _llm_ready():
+        try:
+            md = _generate_investment_memo_llm(
+                submission,
+                rubric_data,
+                _effective_llm_key(),
+                _FORGE_LLM_BASE_URL,
+                _FORGE_LLM_MODEL,
+            )
+            return md, "llm", None
+        except Exception as e:
+            md = _generate_investment_memo_local(submission, rubric_data)
+            return md, "structured", f"LLM unavailable ({e}) — structured memo generated from score data."
+    md = _generate_investment_memo_local(submission, rubric_data)
+    return md, "structured", (
+        "No API key — structured memo from ForgeOS scores. "
+        "Add a key in Rubric Settings for AI-authored memos."
+    )
+
+
+def _memo_to_pdf_bytes(markdown_text: str) -> bytes:
+    """Render memo as a simple multi-page PDF via PyMuPDF."""
+    import fitz
+
+    doc = fitz.open()
+    page_w, page_h = 595, 842  # A4 pt
+    margin, fontsize, leading = 50, 10, 14
+    max_chars = 95
+
+    def _wrap_line(line: str) -> list[str]:
+        line = line.replace("\t", "    ")
+        if len(line) <= max_chars:
+            return [line] if line else [""]
+        words, out, cur = line.split(), [], ""
+        for w in words:
+            if len(cur) + len(w) + 1 <= max_chars:
+                cur = f"{cur} {w}".strip()
+            else:
+                if cur:
+                    out.append(cur)
+                cur = w
+        if cur:
+            out.append(cur)
+        return out or [""]
+
+    y = margin
+    page = doc.new_page(width=page_w, height=page_h)
+
+    for raw_line in markdown_text.split("\n"):
+        for line in _wrap_line(raw_line):
+            if y > page_h - margin:
+                page = doc.new_page(width=page_w, height=page_h)
+                y = margin
+            page.insert_text((margin, y), line, fontsize=fontsize, fontname="helv")
+            y += leading
+
+    pdf_bytes = doc.tobytes()
+    doc.close()
+    return pdf_bytes
+
+
+def _ensure_memo_cached(sub_id: str, rubric_data: dict) -> None:
+    """Generate and cache memo when memo_needs_generate or memo_force_regenerate is set."""
+    if not (
+        st.session_state.get("memo_needs_generate")
+        or st.session_state.get("memo_force_regenerate")
+    ):
+        return
+
+    sub = next((s for s in st.session_state.submissions if s["id"] == sub_id), None)
+    if not sub or not sub.get("categories"):
+        st.session_state.memo_needs_generate = False
+        st.session_state.memo_force_regenerate = False
+        return
+
+    with st.spinner("Generating investment memo…"):
+        md, source, _warn = generate_investment_memo(sub, rubric_data)
+        st.session_state.investment_memos[sub_id] = {
+            "markdown": md,
+            "source": source,
+            "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+            "warning": _warn,
+        }
+    st.session_state.memo_needs_generate = False
+    st.session_state.memo_force_regenerate = False
+
+
+def _investment_memo_dialog_body():
+    """Modal body: memo preview, copy, export, regenerate."""
+    sub_id = st.session_state.get("memo_sub_id")
+    if not sub_id:
+        return
+
+    sub = next((s for s in st.session_state.submissions if s["id"] == sub_id), None)
+    if not sub:
+        st.warning("Submission not found.")
+        if st.button("Close", use_container_width=True):
+            st.session_state.memo_sub_id = None
+            st.rerun()
+        return
+
+    st.markdown(
+        f'<div style="font-size:15px;font-weight:600;color:#e6edf3;">{_esc(sub["name"])}</div>'
+        f'<div style="font-size:11px;color:#8b949e;margin-bottom:8px;">{_esc(sub_id)} · '
+        f'Investment Memo</div>',
+        unsafe_allow_html=True,
+    )
+
+    _ensure_memo_cached(sub_id, rubric)
+    cached = st.session_state.investment_memos.get(sub_id)
+
+    if not cached or not cached.get("markdown"):
+        st.error("Could not generate memo — ensure the submission is scored.")
+        if st.button("Close", use_container_width=True):
+            st.session_state.memo_sub_id = None
+            st.rerun()
+        return
+
+    if cached.get("warning"):
+        st.info(cached["warning"])
+
+    source_lbl = "AI-authored (LLM)" if cached.get("source") == "llm" else "Structured export"
+    st.markdown(
+        f'<div class="memo-source-tag">{source_lbl} · {cached.get("generated_at", "")}</div>',
+        unsafe_allow_html=True,
+    )
+
+    with st.container(border=True):
+        st.markdown(cached["markdown"])
+
+    # Raw markdown for copy / download (also shown for manual copy fallback)
+    with st.expander("View raw Markdown", expanded=False):
+        st.text_area(
+            "memo_raw",
+            value=cached["markdown"],
+            height=200,
+            label_visibility="collapsed",
+        )
+
+    safe_name = re.sub(r"[^\w\-]+", "_", sub.get("name", "memo"))[:40]
+    fname_base = f"ForgeOS_Memo_{safe_name}_{sub_id}"
+
+    btn1, btn2, btn3, btn4, btn5 = st.columns(5)
+    with btn1:
+        if hasattr(st, "copy_button"):
+            st.copy_button(
+                "Copy Memo",
+                cached["markdown"],
+                use_container_width=True,
+                help="Copy full memo to clipboard",
+            )
+        else:
+            st.download_button(
+                "Copy as .md",
+                cached["markdown"],
+                file_name=f"{fname_base}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+    with btn2:
+        st.download_button(
+            "Export Markdown",
+            cached["markdown"],
+            file_name=f"{fname_base}.md",
+            mime="text/markdown",
+            use_container_width=True,
+        )
+    with btn3:
+        try:
+            pdf_bytes = _memo_to_pdf_bytes(cached["markdown"])
+            st.download_button(
+                "Export PDF",
+                pdf_bytes,
+                file_name=f"{fname_base}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        except Exception as ex:
+            st.button("Export PDF", disabled=True, help=str(ex), use_container_width=True)
+    with btn4:
+        if st.button("Regenerate", use_container_width=True):
+            st.session_state.memo_force_regenerate = True
+            st.rerun()
+    with btn5:
+        if st.button("Close", use_container_width=True):
+            st.session_state.memo_sub_id = None
+            st.rerun()
+
+
+if hasattr(st, "dialog"):
+    try:
+        @st.dialog("Investment Memo", width="large")
+        def _investment_memo_dialog():
+            _investment_memo_dialog_body()
+    except TypeError:
+        @st.dialog("Investment Memo")
+        def _investment_memo_dialog():
+            _investment_memo_dialog_body()
+else:
+    def _investment_memo_dialog():
+        st.markdown("#### Investment Memo")
+        _investment_memo_dialog_body()
+
+
+def _maybe_open_memo_dialog():
+    """Open investment memo modal when memo_sub_id is set."""
+    if not st.session_state.get("memo_sub_id"):
+        return
+    if hasattr(st, "dialog"):
+        _investment_memo_dialog()
+    else:
+        with st.container(border=True):
+            _investment_memo_dialog_body()
 
 
 def generate_stage_summary(submission, new_stage):
@@ -2383,20 +5601,259 @@ def generate_stage_summary(submission, new_stage):
     options = template_map.get(new_stage, INTAKE_FALLBACK)
     return rng.choice(options)
 
+DEMO_SUBMISSIONS = [
+    # ── High-potential innovations ────────────────────────────────────────────
+    (
+        "Regenera™ Mycelium-Leather Work Boot",
+        "Regenera Materials (Oakland, CA) is commercializing a breakthrough mycelium-composite "
+        "upper material that matches full-grain leather tensile strength while cutting embodied "
+        "carbon 78% versus bovine leather (third-party LCA cited, ISO 14040). Two provisional "
+        "patents cover the cross-linking process. We have a validated pilot with 1,200 pairs "
+        "manufactured via contract partner in Portugal; BOM at 10k units/month is $41/pair with "
+        "52% gross margin at $129 MSRP. Founder team includes a former Allbirds materials lead "
+        "and a supply chain engineer who built Nike's EU factory network. Letters of intent from "
+        "two regional safety-footwear distributors ($2.1M annual run-rate). GRS and OEKO-TEX "
+        "certifications in progress; REACH compliance documented.",
+        "PDF", "Scaling", "Approved",
+    ),
+    (
+        "NovaSeal™ Compostable High-Barrier Food Pouch",
+        "NovaSeal replaces multi-layer PE/EVOH laminates with a proprietary cellulose-nano "
+        "crystalline (CNC) coating on FSC kraft, achieving OTR < 0.8 cc/m²/day — the first "
+        "compostable pouch certified for 12-month ambient shelf life on dry goods. Novel "
+        "coating process uses aqueous deposition (no PFAS), scalable on existing flexographic "
+        "lines with tooling retrofit estimated at $180k per line. Market: $4.2B sustainable "
+        "flexible packaging segment growing 14% CAGR; validated demand via 14 CPG brand "
+        "interviews and a paid pilot with a regional snack company (8-week shelf test passed). "
+        "Team has FDA food-contact experience; FSC and BPI compostable certifications secured. "
+        "Unit economics demonstrated at pilot scale with measured barrier data and customer "
+        "renewal contract signed.",
+        "PDF", "Market Test", "Approved",
+    ),
+    (
+        "VoltEdge 800V SiC Traction Inverter Module",
+        "VoltEdge Power Systems is developing a proprietary 800V silicon-carbide inverter module "
+        "for Tier-2 EV OEMs, delivering 98.4% peak efficiency and 40% volume reduction versus "
+        " incumbent IGBT designs. Patent pending on integrated liquid-cooling manifold. Working "
+        "prototype tested at 200kW continuous; BOM modeled at volume (50k units/yr) shows "
+        "18% cost advantage. Supply chain secured with Wolfspeed die sourcing and domestic "
+        "assembly partner. Automotive ISO 26262 functional safety roadmap in place; CE and "
+        "UN/ECE R100 testing scheduled Q3. Founding team: ex-Tesla powertrain engineer (led "
+        "Model 3 inverter), ex-BorgWarner manufacturing director. LOI from mid-size EV startup "
+        "for 15k units/year. Traction data and thermal test results documented.",
+        "PDF", "Validation", "In Review",
+    ),
+    (
+        "LoopFrame Open-Repair Smart Speaker",
+        "LoopFrame Audio is building a consumer smart speaker designed for 10-year service life: "
+        "proprietary modular driver assembly, standard fastener layout, published repair manuals, "
+        "and replaceable compute module. Breakthrough industrial design with magnetic faceplate — "
+        "patent filed on the novel snap-fit architecture. Differentiated in a crowded market via "
+        "circular design and EU Right-to-Repair compliance built-in from day one. Functional "
+        "prototype demonstrated at CES; 340-unit beta sold out in 72 hours with 4.6★ reviews. "
+        "Manufacturing partner in Shenzhen with audited ethical sourcing (SA8000); scalable "
+        "production line qualified. BOM $38 at 25k units; $149 retail with 44% margin. Founder "
+        "previously shipped 200k units at Sonos competitor. Recyclable aluminum enclosure; LCA "
+        "shows 62% lower e-waste versus sealed competitors. Measured repair-cycle data cited.",
+        "Video", "Prototyping", "In Review",
+    ),
+    (
+        "TerraCrisp Fermented Plant-Protein Crisp",
+        "TerraCrisp Foods uses a novel solid-state fermentation process to convert upcycled "
+        "brewer's spent grain into a crunchy, shelf-stable protein crisp with 22g complete "
+        "protein per 100g and neutral flavor profile — a first in the ambient CPG aisle. "
+        "Process breakthrough reduces water use 90% versus wet extrusion. Prototype batches "
+        "validated in university sensory study (n=186, 78% preference vs. leading soy crisp). "
+        "Co-manufacturing agreement with regional food processor; scalable production line "
+        "mapped. SAM $890M (better-for-you savory snacks); early traction: 3 retail LOIs, "
+        "Amazon launch pilot at 400 units/week sell-through. Team includes fermentation PhD "
+        "and former Kind Snacks VP Supply Chain. FDA GRAS pathway scoped; allergen testing "
+        "complete with measured nutritional data cited.",
+        "PDF", "Validation", "Scored",
+    ),
+    # ── Solid but average submissions ─────────────────────────────────────────
+    (
+        "ThreadMark Circular Workwear Platform",
+        "ThreadMark embeds washable RFID tags in industrial workwear to track garment lifecycle, "
+        "enabling corporate clients to reduce replacement spend and meet Scope 3 reporting "
+        "requirements. Breakthrough first-of-kind integration of RFID hardware with a proprietary "
+        "rental-and-repair routing platform — patent pending on the novel unique lifecycle "
+        "tracking system and advanced circular workflow. Prototype vests tested with one "
+        "municipal fleet (180 garments, 6-month pilot with validated results). Manufacturing "
+        "via existing textile partner in Vietnam; supply chain established with scalable "
+        "production to 5k units/month. Market segment is commercial workwear ($12B globally) "
+        "with growing sustainability demand. Team has textile sourcing experience and one "
+        "engineer who built RFID systems at a logistics startup. Revenue model: SaaS + "
+        "per-garment fee; pricing validated with two customer contracts.",
+        "PDF", "Concept", "Scored",
+    ),
+    (
+        "AeroForge 3D-Printed Titanium Brake Caliper",
+        "AeroForge Motorsport produces limited-run titanium brake calipers via laser powder-bed "
+        "fusion, targeting track-day and club-racing enthusiasts. Proprietary lattice topology "
+        "delivers breakthrough mass reduction — 35% lighter versus OEM cast iron with novel "
+        "thermal management channels. Prototype dyno-tested on 10 vehicles; performance data "
+        "measured and cited. Manufacturing is feasible at low volume (500 sets/yr) via qualified "
+        "additive partner; tooling and supply chain for titanium powder secured. Niche segment "
+        "with passionate customer base; commercial traction via forum pre-orders (42 sets). "
+        "Founder is aerospace metallurgist with 3D printing background and proven track record. "
+        "DOT compliance path for aftermarket automotive parts identified; safety testing "
+        "scheduled.",
+        "Image", "Prototyping", "Scored",
+    ),
+    (
+        "BlueHarvest Algae Omega-3 Beverage",
+        "BlueHarvest cultivates a proprietary microalgae strain to produce a neutral-tasting "
+        "omega-3 RTD beverage — a novel fermentation breakthrough positioning against fish-oil "
+        "supplements. Pilot bioreactor producing 200L/week; product formulation tested in focus "
+        "groups with validated preference data. Market for algae omega-3 is growing; our unique "
+        "strain offers differentiated DHA profile. Manufacturing path mapped: industrial "
+        "bioreactor partner identified for scalable production from pilot scale. Team includes "
+        "fermentation PhD and former beverage ops lead. Sustainability story is strong (no fish, "
+        "lower carbon) with LCA draft completed. FDA GRAS pathway scoped; early B2B commercial "
+        "interest from two supplement brands.",
+        "PDF", "Concept", "Scored",
+    ),
+    (
+        "ThermaWeave Phase-Change Athletic Base Layer",
+        "ThermaWeave integrates micro-encapsulated phase-change material (PCM) into a merino "
+        "blend base layer via a proprietary knitting pattern that improves drape and wash "
+        "durability — a novel textile process validated in lab testing. Prototype garments "
+        "manufactured (500 units) via Portuguese knitwear partner with scalable production "
+        "capacity. Market: premium athletic apparel ($28B segment) with validated customer "
+        "demand via DTC pre-order campaign ($34k raised). Supply chain for PCM capsules secured "
+        "from German supplier; BOM and margin analysis complete. Team is two former Under Armour "
+        "designers with manufacturing partner relationships. Recyclable packaging; sustainable "
+        "merino sourcing with ethical certification.",
+        "PDF", "Validation", "Scored",
+    ),
+    (
+        "PackRight Reusable Shipper Insert System",
+        "PackRight replaces single-use foam and bubble wrap with a modular corrugated insert "
+        "system designed for 20+ reuse cycles in e-commerce fulfillment. Recyclable, "
+        "cost-neutral at 8+ cycles per internal model. Prototype tested with one mid-size "
+        "3PL (4,000 shipments); damage rate comparable to foam. Innovation is incremental — "
+        "reusable packaging concepts exist (Limeloop, RePack) — but our fold-flat design "
+        "reduces return-shipping cost 40%. Manufacturing via standard die-cut corrugated "
+        "partner; scalable. Market validated through 3PL pilot but broader demand unproven. "
+        "Founder has packaging engineering background; early B2B pricing model drafted.",
+        "PDF", "Market Test", "Scored",
+    ),
+    (
+        "Heritage Mill Ancient-Grain Pasta Co-Pack",
+        "Heritage Mill partners with regional grain farmers to produce bronze-die pasta from "
+        "einkorn and emmer under a unique co-brand retail model — a novel farm-to-shelf "
+        "traceability breakthrough via QR-linked harvest data and first-of-kind grower revenue "
+        "share. Prototype production runs complete at existing Italian co-packer with scalable "
+        "manufacturing capacity. Supply chain for specialty grains is seasonal but contracts "
+        "secured with three farms for 2026 harvest. Market is moderate-growth premium pasta "
+        "($1.1B US) with validated demand from two regional grocers. Team includes a "
+        "chef-founder with proven CPG launch experience and operations lead. Sustainable and "
+        "ethical sourcing documented; compostable packaging pilot underway.",
+        "PDF", "Concept", "Scored",
+    ),
+    (
+        "SilKote Bio-Based Marine Anti-Fouling Coating",
+        "SilKote Marine develops a silicone foul-release coating using bio-based resin "
+        "feedstock, reducing copper biocide content 60% versus conventional antifouling "
+        "paints. Novel polymer chemistry with one provisional patent. Lab and static panel "
+        "testing show 18-month performance; dynamic hull testing underway. Manufacturing "
+        "requires specialty batch reactor — partner identified in Netherlands. Regulatory "
+        "path includes IMO biocide review and regional VOC compliance. Niche B2B market "
+        "($800M antifouling coatings) with long sales cycles. Team: polymer chemist + marine "
+        "industry sales veteran with proven track record at Hempel.",
+        "PDF", "Scaling", "In Review",
+    ),
+    (
+        "CarbonCork Negative-Emission Vehicle Interior Trim",
+        "CarbonCork produces injection-molded interior trim panels from a proprietary cork "
+        "composite blended with captured-CO₂ mineral filler — a breakthrough material and novel "
+        "manufacturing process achieving net-negative embodied carbon for EV OEMs. Patent "
+        "pending on the composite formulation; first automotive application of this bio-based "
+        "carbon sequestration approach. Material prototype meets OEM flammability screening "
+        "(FMVSS 302 pending full test). Manufacturing via existing cork processor and twin-screw "
+        "compounding; scalable to 100k panels/month with identified Tier-1 integration path. "
+        "Market pull from automotive sustainability mandates (EU fleet regulations). Team "
+        "includes former Faurecia materials engineer with proven track record. LOI from "
+        "European EV startup for concept vehicle fitment. LCA demonstrates 1.8 kg CO₂e "
+        "sequestered per panel.",
+        "PDF", "Monitoring", "Approved",
+    ),
+    # ── Auto-reject candidates (weak rubric signals) ──────────────────────────
+    (
+        "LuxBasic Premium Cotton Tee Rebrand",
+        "LuxBasic is launching a direct-to-consumer premium cotton t-shirt — a me-too product "
+        "in a saturated, declining basics market. No material innovation, no proprietary "
+        "process, no IP. We are essentially repackaging a standard commodity blank with a "
+        "logo and influencer marketing. Existing competitors (Everlane, Cuts, Uniqlo) dominate "
+        "at lower price points. No prototype beyond generic blanks from Alibaba; manufacturing "
+        "is standard cut-and-sew with no differentiation. Vague hype about 'disrupting fashion' "
+        "without evidence. No relevant team experience in apparel manufacturing. We believe "
+        "our brand story will carry it — unsubstantiated. No revenue model beyond DTC hope.",
+        "PDF", "Concept", "Rejected",
+    ),
+    (
+        "HydraGlow LED Smart Water Bottle",
+        "HydraGlow adds a generic LED strip and basic hydration reminder app to a standard "
+        "stainless steel water bottle — a simple copy of dozens of existing Amazon listings. "
+        "No novel technology, no patent, commodity product in a crowded market. Manufacturing "
+        "is off-the-shelf OEM from Shenzhen with our logo. Concept only — no working prototype "
+        "beyond a 3D-printed mockup. Speculative TAM claims ('every gym-goer needs one'). "
+        "Vague marketing language with no validated customer demand or test data. First-time "
+        "founders with no hardware or supply chain experience. Unclear revenue model at $12 "
+        "retail with no margin analysis.",
+        "Image", "Intake", "Rejected",
+    ),
+    (
+        "Perpetua Motion Self-Charging Desk Device",
+        "Perpetua Labs claims to have built a desk ornament that generates perpetual motion "
+        "energy from ambient vibration — concept only, purely theoretical with no working "
+        "prototype. We believe this violates no laws of physics because of our 'quantum "
+        "harmonic resonance' design — speculative and unsubstantiated. No manufacturing path, "
+        "unclear process, unproven at scale. Heavy on hype, light on evidence. No team with "
+        "relevant engineering background; no compliance plan for consumer electronics (no CE, "
+        "no FCC). No revenue model — planning to license the 'technology' with no LOIs.",
+        "PDF", "Concept", "Rejected",
+    ),
+    (
+        "WrapJoy Monthly Virgin Plastic Gift Box",
+        "WrapJoy is a subscription service shipping monthly gift boxes made entirely from virgin "
+        "plastic with synthetic fragrance inserts — no sustainability consideration, no "
+        "certification, destined for landfill after single use. Greenwash marketing claims "
+        "products are 'eco-luxe' without measurable metrics or LCA. Toxic fragrance compounds "
+        "with no safety testing or regulatory compliance plan. Standard me-too subscription "
+        "box in a saturated market. No prototype beyond a Canva mockup. Vague hype about "
+        "'wellness revolution.' Inexperienced team with no CPG track record. No clear path "
+        "to revenue — free trial boxes with unclear unit economics.",
+        "PDF", "Intake", "Rejected",
+    ),
+    # ── Unscored (fresh intake) ─────────────────────────────────────────────────
+    (
+        "KineticHub Modular EV Battery Enclosure",
+        "KineticHub is developing a modular, crash-safe battery enclosure system for mid-volume "
+        "EV platforms, using a proprietary aluminum-extrusion lattice that enables pack "
+        "capacity swaps without full vehicle redesign. Early CAD and FEA simulations complete; "
+        "physical prototype build scheduled next quarter. Target customers are EV startups "
+        "needing flexible pack architectures. Submission includes industrial design renders "
+        "and preliminary BOM — awaiting full rubric scoring at intake review.",
+        "PDF", "Intake", "New",
+    ),
+    (
+        "HarvestFold Collapsible Insulated Grocery Crate",
+        "HarvestFold combines a collapsible corrugated frame with vacuum-insulated panels for "
+        "last-mile grocery delivery — keeps chilled items at temperature for 4+ hours without "
+        "refrigerant. Early prototype tested in 12 delivery routes with a regional grocer. "
+        "Team submitting initial concept deck and pilot data for ForgeOS intake scoring.",
+        "PDF", "Intake", "New",
+    ),
+]
+
+
 def add_demo_submissions():
-    demos = [
-        ("Self-Healing Polymer Coating",     "PDF",   "Validation",  "Scored"),
-        ("Modular Exoskeleton Frame",         "Image", "Prototyping", "In Review"),
-        ("Biodegradable Packaging System",    "PDF",   "Concept",     "Scored"),
-        ("Micro-Motor Precision Drive",       "Video", "Market Test", "Approved"),
-        ("Smart Thermal Regulator",           "PDF",   "Intake",      "New"),
-        ("Carbon-Fibre Compression Sleeve",   "PDF",   "Scaling",     "Approved"),
-        ("Mycelium Foam Insulation Panel",    "PDF",   "Validation",  "In Review"),
-    ]
-    for name, ftype, stage, status in demos:
+    for name, notes, ftype, stage, status in DEMO_SUBMISSIONS:
         sid = f"FOS-{st.session_state.next_id}"
         st.session_state.next_id += 1
-        sub_stub = {"name": name, "notes": ""}
+        sub_stub = {"name": name, "notes": notes}
         if status != "New":
             scores = ai_score_submission(sub_stub, rubric)
         else:
@@ -2431,8 +5888,222 @@ def add_demo_submissions():
             "extracted_text": "",
             "file_summaries": [],
             "submitted_at":  base_dt.strftime("%Y-%m-%d"),
-            "notes":         "",
+            "notes":          notes,
         })
+
+
+def _build_landing_mockup_html() -> str:
+    """Rich CSS dashboard preview for the landing hero."""
+    bar_heights = [28, 44, 36, 52, 40, 48, 32, 56, 38, 46, 42, 50]
+    bars = "".join(
+        f'<div class="landing-mock-bar" style="height:{h}%;opacity:{0.45 + (i % 4) * 0.12};"></div>'
+        for i, h in enumerate(bar_heights)
+    )
+    kanban_cols = [
+        ("Concept", "#1f6feb", [("BioWrap Produce Film", "82", "#22c55e"), ("SolarPack Mailer", "74", "#22c55e")]),
+        ("Validation", "#0ea5e9", [("FlexiBottle", "68", "#f59e0b")]),
+        ("Prototyping", "#238636", [("CarbonCork Trim", "91", "#22c55e")]),
+        ("Market Test", "#9e6a03", [("Perpetua Motion Toy", "12", "#f43f5e")]),
+    ]
+    kanban_html = ""
+    for name, color, cards in kanban_cols:
+        cards_html = ""
+        for title, score, sc in cards:
+            cards_html += (
+                f'<div class="landing-mock-k-card">{_esc(title)}'
+                f'<div class="landing-mock-k-score" style="color:{sc};">Score {score}</div>'
+                f"</div>"
+            )
+        kanban_html += (
+            f'<div class="landing-mock-k-col">'
+            f'<div class="landing-mock-k-hd" style="border-color:{color};">{_esc(name)}</div>'
+            f"{cards_html}</div>"
+        )
+    return f"""
+    <div class="landing-mock-wrap">
+    <div class="landing-mockup-shell">
+      <div class="landing-mock-topbar">
+        <div class="landing-mock-dots">
+          <span class="landing-mock-dot" style="background:#f43f5e;"></span>
+          <span class="landing-mock-dot" style="background:#f59e0b;"></span>
+          <span class="landing-mock-dot" style="background:#22c55e;"></span>
+        </div>
+        <span style="font-size:10px;color:var(--text-3);font-weight:600;">ForgeOS · Innovation OS</span>
+        <span style="font-size:9px;color:var(--green);font-weight:700;">● Live</span>
+      </div>
+      <div class="landing-mock-body">
+        <div class="landing-mock-sidebar">
+          <div class="landing-mock-nav-item active">Dashboard</div>
+          <div class="landing-mock-nav-item">Submissions</div>
+          <div class="landing-mock-nav-item">Shortlist</div>
+          <div class="landing-mock-nav-item">Pipeline</div>
+          <div class="landing-mock-nav-item">Rubric</div>
+        </div>
+        <div class="landing-mock-main">
+          <div class="landing-mock-forge-bar">
+            <div class="landing-mock-breadcrumb">ForgeOS <span>/ Dashboard</span></div>
+            <div class="landing-mock-status">
+              <span class="landing-mock-status-dot"></span> 19 ideas tracked
+            </div>
+          </div>
+          <div class="landing-mock-kpis">
+            <div class="landing-mock-kpi">
+              <div class="landing-mock-kpi-lbl">Submissions</div>
+              <div class="landing-mock-kpi-val">19</div>
+            </div>
+            <div class="landing-mock-kpi">
+              <div class="landing-mock-kpi-lbl">Avg Score</div>
+              <div class="landing-mock-kpi-val" style="color:#22c55e;">71</div>
+            </div>
+            <div class="landing-mock-kpi">
+              <div class="landing-mock-kpi-lbl">High Potential</div>
+              <div class="landing-mock-kpi-val" style="color:#3b82f6;">8</div>
+            </div>
+            <div class="landing-mock-kpi">
+              <div class="landing-mock-kpi-lbl">Approved</div>
+              <div class="landing-mock-kpi-val" style="color:#a78bfa;">4</div>
+            </div>
+          </div>
+          <div class="landing-mock-chart">{bars}</div>
+          <table class="landing-mock-table">
+            <thead><tr>
+              <th>ID</th><th>Idea</th><th>Score</th><th>Status</th>
+            </tr></thead>
+            <tbody>
+              <tr>
+                <td>1001</td><td>BioWrap Produce Film</td>
+                <td><span class="landing-mock-badge landing-mock-badge-green">82</span></td>
+                <td><span class="landing-mock-badge landing-mock-badge-blue">Scored</span></td>
+              </tr>
+              <tr>
+                <td>1004</td><td>CarbonCork Interior Trim</td>
+                <td><span class="landing-mock-badge landing-mock-badge-green">91</span></td>
+                <td><span class="landing-mock-badge landing-mock-badge-amber">In Review</span></td>
+              </tr>
+              <tr>
+                <td>1018</td><td>Perpetua Motion Desk Toy</td>
+                <td><span class="landing-mock-badge" style="background:rgba(244,63,94,0.15);color:#f43f5e;">12</span></td>
+                <td><span class="landing-mock-badge" style="background:rgba(244,63,94,0.15);color:#f43f5e;">Rejected</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="landing-mock-pipeline-hd" style="margin-top:10px;">Pipeline Kanban</div>
+          <div class="landing-mock-kanban">{kanban_html}</div>
+        </div>
+      </div>
+    </div>
+    <div class="landing-mock-float">
+      <div class="landing-mock-float-lbl">Rubric v2 · Top Score</div>
+      <div class="landing-mock-float-val">91</div>
+      <div class="landing-mock-float-sub">CarbonCork Interior Trim</div>
+    </div>
+    <div class="landing-mock-score-chip">
+      <div class="landing-mock-score-chip-num">8</div>
+      <div class="landing-mock-score-chip-lbl">High Potential</div>
+    </div>
+    </div>"""
+
+
+def _build_landing_hero_html() -> str:
+    """Unified hero section — copy + dashboard mockup in one HTML block."""
+    return f"""
+    <section class="landing-hero-section">
+      <div class="landing-hero-glow landing-hero-glow--blue"></div>
+      <div class="landing-hero-glow landing-hero-glow--green"></div>
+      <div class="landing-hero-glow landing-hero-glow--purple"></div>
+      <div class="landing-hero-inner">
+        <div class="landing-hero-copy">
+          <div class="landing-eyebrow">
+            <span class="landing-eyebrow-dot"></span>
+            Agentic innovation intelligence
+          </div>
+          <h1 class="landing-h1">
+            ForgeOS — The <em>AI Agentic</em> Innovation OS
+          </h1>
+          <p class="landing-sub">
+            From raw ideas to commercialized products. Intelligently screen thousands
+            of submissions, apply a world-class physical-goods rubric, and advance the
+            best innovations through the full pipeline.
+          </p>
+        </div>
+        <div class="landing-hero-visual">
+          {_build_landing_mockup_html()}
+        </div>
+      </div>
+    </section>"""
+
+
+def _build_landing_cta_html() -> str:
+    """Centered CTA bar — aligned with benefits section below."""
+    return """
+    <div class="landing-hero-cta-bar">
+      <a class="landing-cta-btn" href="?dashboard=1">Launch ForgeOS Dashboard</a>
+      <p class="landing-hero-micro">No setup required · Load demo data from the dashboard sidebar</p>
+    </div>"""
+
+
+def _render_landing_page():
+    """Full-screen marketing landing — default app entry point."""
+    st.markdown("""
+    <div class="landing-nav">
+      <div class="landing-nav-brand">
+        <div class="sb-logo-icon" style="width:32px;height:32px;font-size:16px;">⚙</div>
+        ForgeOS
+        <span class="landing-nav-badge">Innovation OS</span>
+      </div>
+      <div style="font-size:12px;color:var(--text-3);font-weight:500;">
+        AI Agentic Innovation OS
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    st.markdown(_build_landing_hero_html(), unsafe_allow_html=True)
+    st.markdown(_build_landing_cta_html(), unsafe_allow_html=True)
+
+    # ── Benefit cards ─────────────────────────────────────────────────────────
+    st.markdown('<div id="landing-benefits" class="landing-benefits">', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="landing-benefits-hd">Built for innovation</div>',
+        unsafe_allow_html=True,
+    )
+    b1, b2, b3, b4 = st.columns(4)
+    benefits = [
+        (b1, "📎", "Multimodal Intake",
+         "Ingest PDFs, images, video, and docs. Vision-aware parsing extracts evidence "
+         "for richer, fairer scoring."),
+        (b2, "📊", "Rubric Scoring",
+         "8-criterion Extensive Rubric v2 with gating rules, LLM or simulated scoring, "
+         "and investment-ready memos."),
+        (b3, "🔀", "Agentic Pipeline",
+         "Seven-stage flow from Intake to Monitoring — advance ideas with AI stage "
+         "briefs and kanban visibility."),
+        (b4, "⚡", "Speed & Scale",
+         "Bulk-score submissions in parallel. Shortlist by category. Filter, sort, "
+         "and triage thousands of ideas fast."),
+    ]
+    for col, icon, title, desc in benefits:
+        with col:
+            st.markdown(f"""
+            <div class="landing-benefit-card">
+              <span class="landing-benefit-icon">{icon}</span>
+              <div class="landing-benefit-title">{_esc(title)}</div>
+              <p class="landing-benefit-desc">{_esc(desc)}</p>
+            </div>""", unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── Footer ────────────────────────────────────────────────────────────────
+    st.markdown("""
+    <div class="landing-footer">
+      <p style="font-size:14px;font-weight:600;color:var(--text-2);margin-bottom:8px;">
+        ForgeOS · The AI Agentic Innovation OS
+      </p>
+      <p>Built as a hackathon MVP · Extensive Rubric v2 · Physical Goods</p>
+      <p style="margin-top:12px;font-size:10px;color:var(--text-3);">
+        © 2026 ForgeOS · From raw ideas to commercialized products
+      </p>
+    </div>
+    <div style="height:24px;"></div>""", unsafe_allow_html=True)
+
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -2442,20 +6113,29 @@ with st.sidebar:
             <div class="sb-logo-icon">⚙</div>
             ForgeOS
         </div>
-        <div class="sb-tag">Innovation OS · Physical Goods</div>
+        <div class="sb-tag">Innovation OS</div>
     </div>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="sb-section-label">Main</div>', unsafe_allow_html=True)
 
-    page = st.radio("nav", [
-        "Dashboard",
-        "Submissions",
-        "Pipeline",
-        "Rubric Settings",
-    ], label_visibility="collapsed")
+    if st.session_state.nav_page not in NAV_OPTIONS:
+        st.session_state.nav_page = "Home"
+    page = st.radio(
+        "nav",
+        NAV_OPTIONS,
+        index=NAV_OPTIONS.index(st.session_state.nav_page),
+        label_visibility="collapsed",
+    )
+    prev_nav = st.session_state.get("_tracked_nav_page")
+    if prev_nav is not None and prev_nav != page:
+        _close_criterion_detail_dialog()
+    st.session_state._tracked_nav_page = page
+    st.session_state.nav_page = page
 
     subs = st.session_state.submissions
+    _purge_shortlist_orphans()
+    sl_total = _shortlist_total_count()
     total    = len(subs)
     scored   = sum(1 for s in subs if s["status"] in ("Scored","In Review","Approved"))
     approved = sum(1 for s in subs if s["status"] == "Approved")
@@ -2470,6 +6150,7 @@ with st.sidebar:
     <div class="sb-stat-row"><span class="sb-stat-label">Approved</span><span class="sb-stat-val">{approved}</span></div>
     <div class="sb-stat-row"><span class="sb-stat-label">High Potential</span><span class="sb-stat-val" style="color:#3fb950">{high_pot}</span></div>
     <div class="sb-stat-row"><span class="sb-stat-label">Avg Score</span><span class="sb-stat-val" style="color:{score_hex(avg_score) if total else '#8b949e'}">{avg_score if total else '—'}</span></div>
+    <div class="sb-stat-row"><span class="sb-stat-label">Shortlist</span><span class="sb-stat-val" style="color:#f59e0b">{sl_total}</span></div>
     """, unsafe_allow_html=True)
 
     st.markdown('<div class="sb-divider"></div>', unsafe_allow_html=True)
@@ -2494,9 +6175,15 @@ with st.sidebar:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PAGE: HOME (Landing)
+# ══════════════════════════════════════════════════════════════════════════════
+if page == "Home":
+    _render_landing_page()
+
+# ══════════════════════════════════════════════════════════════════════════════
 # PAGE: DASHBOARD
 # ══════════════════════════════════════════════════════════════════════════════
-if page == "Dashboard":
+elif page == "Dashboard":
 
     st.markdown(f"""
     <div class="forge-topbar">
@@ -2597,12 +6284,12 @@ if page == "Dashboard":
             stage_color = next((s["color"] for s in STAGES if s["name"] == sub["stage"]), "#8b949e")
             rows_html += f"""
             <tr class="forge-tr">
-              <td class="forge-td"><span class="forge-id">{sub['id']}</span></td>
-              <td class="forge-td forge-td-primary">{sub['name']}</td>
+              <td class="forge-td"><span class="forge-id">{_esc(sub['id'])}</span></td>
+              <td class="forge-td forge-td-primary">{_esc(sub['name'])}</td>
               <td class="forge-td">{badge}</td>
-              <td class="forge-td"><span class="pill {pc}">{sub['status']}</span></td>
-              <td class="forge-td"><span style="font-size:11px;color:{stage_color};font-weight:600;">{sub['stage']}</span></td>
-              <td class="forge-td">{sub['submitted_at']}</td>
+              <td class="forge-td"><span class="pill {pc}">{_esc(sub['status'])}</span></td>
+              <td class="forge-td"><span style="font-size:11px;color:{stage_color};font-weight:600;">{_esc(sub['stage'])}</span></td>
+              <td class="forge-td">{_esc(sub['submitted_at'])}</td>
             </tr>"""
 
         st.markdown(f"""
@@ -2691,117 +6378,210 @@ elif page == "Submissions":
         else:
             st.error(fmsg)
 
-    # ── Upload panel ──────────────────────────────────────────────────────────
-    with st.expander("➕  New Submission", expanded=not st.session_state.submissions):
-        col_f1, col_f2 = st.columns([2, 1])
-        with col_f1:
-            idea_name = st.text_input("Idea Name", placeholder="e.g. Self-Healing Polymer Coating")
-            uploaded  = st.file_uploader(
-                "Supporting files",
-                type=["pdf","png","jpg","jpeg","gif","webp","bmp","mp4","mov","avi","webm","txt","md","csv","docx"],
-                accept_multiple_files=True,
-                help="PDF (layout-aware extraction) · PNG/JPG/WebP (vision analysis) · MP4/MOV (metadata + first-frame) · TXT/CSV/DOCX",
-            )
-            # ── Instant file previews (before submit) ────────────────────
-            if uploaded:
-                import io as _preview_io
-                from PIL import Image as _PreviewImage
-                n_prev = min(len(uploaded), 5)
-                prev_cols = st.columns(n_prev)
-                _type_icons = {
-                    "pdf": "📄", "mp4": "🎬", "mov": "🎬", "avi": "🎬",
-                    "webm": "🎬", "txt": "📝", "md": "📝", "csv": "📊", "docx": "📝",
-                }
-                for pi, pf in enumerate(uploaded[:n_prev]):
-                    with prev_cols[pi]:
-                        pn = pf.name.lower()
-                        pf.seek(0)
-                        if any(pn.endswith(x) for x in (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")):
-                            try:
-                                raw = pf.read()
-                                img_prev = _PreviewImage.open(_preview_io.BytesIO(raw))
-                                st.image(img_prev, caption=pf.name[:22], use_container_width=True)
-                            except Exception:
-                                st.markdown(f"🖼 `{pf.name[:20]}`")
-                        else:
-                            ext_p = pn.rsplit(".", 1)[-1] if "." in pn else "file"
-                            icon_p = _type_icons.get(ext_p, "📎")
-                            sz_p = round(pf.size / 1024, 1) if hasattr(pf, "size") else "?"
-                            st.markdown(
-                                f'<div style="border:1px solid #21262d;border-radius:6px;'
-                                f'padding:8px 10px;text-align:center;font-size:12px;color:#8b949e;">'
-                                f'<div style="font-size:22px;margin-bottom:4px;">{icon_p}</div>'
-                                f'<div style="color:#e6edf3;font-weight:600;word-break:break-all;">{pf.name[:20]}</div>'
-                                f'<div style="font-size:10px;margin-top:2px;">{ext_p.upper()} · {sz_p} KB</div>'
-                                f'</div>',
-                                unsafe_allow_html=True,
-                            )
-                        pf.seek(0)
-                if len(uploaded) > n_prev:
-                    st.caption(f"+ {len(uploaded) - n_prev} more file(s)")
+    _maybe_open_shortlist_dialog()
+    _maybe_open_memo_dialog()
+    _maybe_open_criterion_deep_dive_dialog()
 
-        with col_f2:
-            init_stage = st.selectbox("Initial Stage", STAGE_NAMES)
-            notes_txt  = st.text_area("Notes", height=96, placeholder="Brief context…")
-            if uploaded and _llm_ready():
+    # ── Upload panel ──────────────────────────────────────────────────────────
+    _UPLOAD_TYPES = ["pdf", "png", "jpg", "jpeg", "gif", "webp", "bmp", "mp4", "mov", "avi", "webm", "txt", "md", "csv", "docx"]
+    _UPLOAD_HELP = (
+        "PDF: multi-method text extraction; auto OCR/vision fallback if text is sparse "
+        "(vision requires API key). Images/video: optional LLM vision checkbox below."
+    )
+
+    with st.expander("➕  New Submission", expanded=not st.session_state.submissions):
+        set_col1, set_col2 = st.columns(2)
+        with set_col1:
+            init_stage = st.selectbox("Initial Stage", STAGE_NAMES, key="submit_init_stage")
+        with set_col2:
+            use_vis = False
+            if _llm_ready():
                 use_vis = st.checkbox(
                     "🔍 Vision analysis for images",
                     value=True,
+                    key="submit_use_vision",
                     help="Uses LLM vision to describe image content. Requires Real LLM mode & API key.",
                 )
-            else:
-                use_vis = False
 
-        if st.button("Submit Idea"):
-            if not idea_name.strip():
-                st.error("Idea name is required.")
-            else:
-                ftypes = list({f.type.split("/")[-1].upper() for f in (uploaded or [])}) or ["—"]
-                extracted    = ""
-                file_summaries: list = []
-                if uploaded:
-                    with st.status("Parsing uploaded files…", expanded=True) as parse_status:
-                        _slot = st.empty()
-                        _is_llm_mode = st.session_state.get("scoring_mode", "Simulated AI") == "Real LLM"
-                        extracted, file_summaries = extract_file_text(
-                            uploaded,
-                            status_slot=_slot,
-                            use_llm_vision=(use_vis and _llm_ready() and _is_llm_mode),
-                            api_key=_effective_llm_key(),
-                            base_url=_FORGE_LLM_BASE_URL,
-                            model=_FORGE_LLM_MODEL,
+        tab_single, tab_bulk = st.tabs(["Single idea", "Bulk upload"])
+
+        with tab_single:
+            col_f1, col_f2 = st.columns([2, 1])
+            with col_f1:
+                idea_name = st.text_input(
+                    "Idea Name",
+                    placeholder="e.g. Self-Healing Polymer Coating",
+                    key="single_idea_name",
+                )
+                uploaded = st.file_uploader(
+                    "Supporting files",
+                    type=_UPLOAD_TYPES,
+                    accept_multiple_files=True,
+                    help=_UPLOAD_HELP,
+                    key="single_idea_files",
+                )
+                _render_upload_file_previews(uploaded)
+
+            with col_f2:
+                notes_txt = st.text_area(
+                    "Notes",
+                    height=96,
+                    placeholder="Brief context…",
+                    key="single_idea_notes",
+                )
+
+            if st.button("Submit Idea", key="submit_single_idea"):
+                _close_criterion_detail_dialog()
+                if not idea_name.strip():
+                    st.error("Idea name is required.")
+                else:
+                    if uploaded:
+                        with st.status("Parsing uploaded files…", expanded=True) as parse_status:
+                            slot = st.empty()
+                            sid, file_count, total_chars = _append_submission_from_upload(
+                                idea_name,
+                                notes_txt,
+                                init_stage,
+                                uploaded,
+                                use_vis,
+                                status_slot=slot,
+                            )
+                            slot.empty()
+                            parse_status.update(
+                                label=f"✅ {file_count} file(s) parsed — {total_chars:,} chars extracted",
+                                state="complete",
+                            )
+                    else:
+                        sid, file_count, _ = _append_submission_from_upload(
+                            idea_name, notes_txt, init_stage, uploaded, use_vis
                         )
-                        _slot.empty()
-                        total_chars = sum(s["chars"] for s in file_summaries)
-                        parse_status.update(
-                            label=f"✅ {len(file_summaries)} file(s) parsed — {total_chars:,} chars extracted",
+                    file_note = f" ({file_count} file(s) parsed)" if file_count else ""
+                    st.success(f"Submission {sid} added{file_note}.")
+                    st.rerun()
+
+        with tab_bulk:
+            st.caption(
+                "Add one row per idea — each with its own name, optional notes, and supporting files. "
+                "Empty rows (no name) are skipped on submit."
+            )
+            bulk_rows: list[dict] = []
+            for idx, row_id in enumerate(st.session_state.bulk_upload_row_ids):
+                with st.container(border=True):
+                    hdr_l, hdr_r = st.columns([5, 1])
+                    with hdr_l:
+                        st.markdown(f"**Idea {idx + 1}**")
+                    with hdr_r:
+                        if len(st.session_state.bulk_upload_row_ids) > 1 and st.button(
+                            "Remove",
+                            key=f"bulk_remove_{row_id}",
+                            use_container_width=True,
+                        ):
+                            st.session_state.bulk_upload_row_ids.remove(row_id)
+                            for prefix in ("bulk_name_", "bulk_notes_", "bulk_files_"):
+                                st.session_state.pop(f"{prefix}{row_id}", None)
+                            st.rerun()
+
+                    b_name_col, b_notes_col = st.columns([1, 1])
+                    with b_name_col:
+                        row_name = st.text_input(
+                            "Idea Name",
+                            placeholder="e.g. Compostable Mailer Film",
+                            key=f"bulk_name_{row_id}",
+                        )
+                    with b_notes_col:
+                        row_notes = st.text_area(
+                            "Notes (optional)",
+                            height=68,
+                            placeholder="Brief context for this idea…",
+                            key=f"bulk_notes_{row_id}",
+                        )
+                    row_files = st.file_uploader(
+                        "Files for this idea",
+                        type=_UPLOAD_TYPES,
+                        accept_multiple_files=True,
+                        key=f"bulk_files_{row_id}",
+                        label_visibility="visible",
+                    )
+                    if row_files:
+                        st.caption(
+                            f"{len(row_files)} file(s): "
+                            + ", ".join(f.name for f in row_files[:4])
+                            + (f" + {len(row_files) - 4} more" if len(row_files) > 4 else "")
+                        )
+                    bulk_rows.append({
+                        "row_id": row_id,
+                        "name": row_name,
+                        "notes": row_notes,
+                        "files": row_files,
+                    })
+
+            bulk_btn_l, bulk_btn_r = st.columns([1, 1])
+            with bulk_btn_l:
+                if st.button("➕ Add another idea", key="bulk_add_row"):
+                    if len(st.session_state.bulk_upload_row_ids) >= 15:
+                        st.warning("Maximum 15 ideas per bulk upload batch.")
+                    else:
+                        st.session_state.bulk_upload_row_ids.append(
+                            st.session_state.bulk_upload_next_row_id
+                        )
+                        st.session_state.bulk_upload_next_row_id += 1
+                        st.rerun()
+            with bulk_btn_r:
+                submit_bulk = st.button(
+                    f"Submit all ideas ({len(st.session_state.bulk_upload_row_ids)})",
+                    key="submit_bulk_ideas",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+            if submit_bulk:
+                _close_criterion_detail_dialog()
+                valid_rows = [r for r in bulk_rows if (r["name"] or "").strip()]
+                if not valid_rows:
+                    st.error("Add at least one idea with a name.")
+                else:
+                    created: list[str] = []
+                    total_files = 0
+                    total_chars = 0
+                    with st.status(
+                        f"Submitting {len(valid_rows)} idea(s)…",
+                        expanded=True,
+                    ) as bulk_status:
+                        slot = st.empty()
+                        for i, row in enumerate(valid_rows):
+                            slot.markdown(
+                                f'<div style="font-size:12px;color:#8b949e;padding:2px 0;">'
+                                f'📥 **{i + 1}/{len(valid_rows)}** — {_esc(row["name"].strip())}</div>',
+                                unsafe_allow_html=True,
+                            )
+                            sid, fc, chars = _append_submission_from_upload(
+                                row["name"],
+                                row["notes"],
+                                init_stage,
+                                row["files"],
+                                use_vis,
+                                status_slot=slot,
+                            )
+                            created.append(sid)
+                            total_files += fc
+                            total_chars += chars
+                        slot.empty()
+                        bulk_status.update(
+                            label=(
+                                f"✅ {len(created)} submission(s) added — "
+                                f"{total_files} file(s), {total_chars:,} chars extracted"
+                            ),
                             state="complete",
                         )
-                sid = f"FOS-{st.session_state.next_id}"
-                st.session_state.next_id += 1
-                st.session_state.submissions.append({
-                    "id":             sid,
-                    "name":           idea_name.strip(),
-                    "file_type":      ", ".join(ftypes),
-                    "status":         "New",
-                    "stage":          init_stage,
-                    "overall":        0.0,
-                    "innovation":     0.0,
-                    "feasibility":    0.0,
-                    "categories":     {},
-                    "auto_reject":    [],
-                    "high_risk":      [],
-                    "scored_at":      "",
-                    "stage_summary":  "",
-                    "stage_history":  [{"stage": init_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")}],
-                    "submitted_at":   datetime.now().strftime("%Y-%m-%d"),
-                    "notes":          notes_txt,
-                    "extracted_text": extracted,
-                    "file_summaries": file_summaries,
-                })
-                file_note = f" ({len(uploaded)} file(s) parsed)" if uploaded else ""
-                st.success(f"Submission {sid} added{file_note}.")
-                st.rerun()
+                    _reset_bulk_upload_form()
+                    id_list = ", ".join(created[:6])
+                    if len(created) > 6:
+                        id_list += f", +{len(created) - 6} more"
+                    st.session_state.flash_msg = (
+                        "success",
+                        f"Added {len(created)} submissions: {id_list}.",
+                    )
+                    st.rerun()
 
     # ── Toolbar ───────────────────────────────────────────────────────────────
     if st.session_state.submissions:
@@ -2813,7 +6593,11 @@ elif page == "Submissions":
         with tb3:
             f_stage  = st.selectbox("sg", ["All Stages"] + STAGE_NAMES, label_visibility="collapsed")
         with tb4:
-            f_sort   = st.selectbox("sort", ["Newest","Score ↓","Score ↑","Name"], label_visibility="collapsed")
+            f_sort   = st.selectbox(
+                "sort",
+                ["Newest", "Score (high first)", "Score (low first)", "Name"],
+                label_visibility="collapsed",
+            )
         with tb5:
             bulk_concurrency = st.number_input(
                 "concurrency",
@@ -3147,6 +6931,7 @@ elif page == "Submissions":
                 dash_grid.empty()
                 log_slot.empty()
                 prog_bar.progress(1.0)
+                _close_criterion_detail_dialog()
                 if rate_limit_hits:
                     st.warning(
                         f"{rate_limit_hits} API call(s) hit rate limits — those ideas were scored "
@@ -3174,9 +6959,9 @@ elif page == "Submissions":
             visible = [s for s in visible if s["status"] == f_status]
         if f_stage != "All Stages":
             visible = [s for s in visible if s["stage"] == f_stage]
-        if f_sort == "Score ↓":
+        if f_sort == "Score (high first)":
             visible.sort(key=lambda x: x["overall"], reverse=True)
-        elif f_sort == "Score ↑":
+        elif f_sort == "Score (low first)":
             visible.sort(key=lambda x: x["overall"])
         elif f_sort == "Name":
             visible.sort(key=lambda x: x["name"])
@@ -3185,279 +6970,9 @@ elif page == "Submissions":
 
         # ── Table ─────────────────────────────────────────────────────────────
         st.markdown('<div class="section-hd" style="margin-top:16px;">All Submissions</div>', unsafe_allow_html=True)
-
-        hd = st.columns([1.1, 3.2, 1.0, 1.0, 1.0, 1.4, 1.5, 1.5, 2.8])
-        for col, label in zip(hd, ["ID","Idea Name","Overall","Innov.","Feas.","Status","AI Badge","Stage","Actions"]):
-            col.markdown(f'<span style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:#8b949e;font-weight:600;">{label}</span>', unsafe_allow_html=True)
-
-        st.markdown("<hr style='margin:6px 0 0 0'>", unsafe_allow_html=True)
-
+        _render_submissions_table_header()
         for sub in visible:
-            row = st.columns([1.1, 3.2, 1.0, 1.0, 1.0, 1.4, 1.5, 1.5, 2.8])
-
-            with row[0]:
-                st.markdown(f'<span class="forge-id">{sub["id"]}</span>', unsafe_allow_html=True)
-
-            with row[1]:
-                st.markdown(f'<span style="font-size:13px;color:#e6edf3;font-weight:500;">{sub["name"]}</span>'
-                            f'<br><span style="font-size:11px;color:#8b949e;">{sub["file_type"]} · {sub["submitted_at"]}</span>',
-                            unsafe_allow_html=True)
-
-            for col, field in zip(row[2:5], ["overall","innovation","feasibility"]):
-                val = sub[field]
-                if val > 0:
-                    bc = score_badge_class(val)
-                    col.markdown(f'<span class="badge-score {bc}">{val}</span>', unsafe_allow_html=True)
-                else:
-                    col.markdown('<span style="color:#6e7681;font-size:13px;">—</span>', unsafe_allow_html=True)
-
-            with row[5]:
-                pc = pill_class(sub["status"])
-                st.markdown(f'<span class="pill {pc}">{sub["status"]}</span>', unsafe_allow_html=True)
-
-            with row[6]:
-                blabel, bcolor, bbg = forge_badge(sub)
-                if blabel:
-                    st.markdown(
-                        f'<span style="font-size:10px;font-weight:700;color:{bcolor};'
-                        f'background:{bbg};border:1px solid {bcolor}44;'
-                        f'border-radius:4px;padding:2px 7px;white-space:nowrap;">'
-                        f'{blabel}</span>',
-                        unsafe_allow_html=True,
-                    )
-                else:
-                    st.markdown('<span style="color:#6e7681;font-size:12px;">—</span>', unsafe_allow_html=True)
-
-            with row[7]:
-                sc = next((s["color"] for s in STAGES if s["name"] == sub["stage"]), "#8b949e")
-                st.markdown(f'<span style="font-size:11px;font-weight:600;color:{sc};">● {sub["stage"]}</span>', unsafe_allow_html=True)
-
-            with row[8]:
-                a1, a2, a3 = st.columns(3)
-                with a1:
-                    if st.button("Score", key=f"sc_{sub['id']}"):
-                        mode_label = st.session_state.get("scoring_mode", "Simulated")
-                        spinner_txt = f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"
-                        with st.spinner(spinner_txt):
-                            if mode_label == "Simulated":
-                                time.sleep(0.8)
-                            sc2, warn2 = route_scoring(sub, rubric)
-                            idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                            st.session_state.submissions[idx].update({
-                                "overall":     sc2["overall"],
-                                "innovation":  sc2["innovation"],
-                                "feasibility": sc2["feasibility"],
-                                "categories":  sc2["categories"],
-                                "auto_reject": sc2["auto_reject"],
-                                "high_risk":   sc2["high_risk"],
-                                "scored_at":   sc2["scored_at"],
-                                "status":      "Scored",
-                            })
-                            gate_note = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
-                            fallback_note = f" · ⚠ {warn2}" if warn2 else ""
-                            st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}{fallback_note}")
-                            st.rerun()
-                with a2:
-                    cur_stage_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
-                    at_last = cur_stage_idx >= len(STAGE_NAMES) - 1
-                    if st.button("Advance", key=f"adv_{sub['id']}", disabled=at_last):
-                        new_stage = STAGE_NAMES[cur_stage_idx + 1]
-                        with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
-                            time.sleep(0.5)
-                            idx     = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                            summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
-                            hist    = st.session_state.submissions[idx].get("stage_history", [])
-                            hist.append({"stage": new_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")})
-                            st.session_state.submissions[idx]["stage"]         = new_stage
-                            st.session_state.submissions[idx]["stage_summary"] = summary
-                            st.session_state.submissions[idx]["stage_history"] = hist
-                            st.session_state.flash_msg = ("info", f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated")
-                        st.rerun()
-                with a3:
-                    if st.button("Delete", key=f"del_{sub['id']}"):
-                        st.session_state.submissions = [s for s in st.session_state.submissions if s["id"] != sub["id"]]
-                        st.rerun()
-
-            # ── Score detail expander ──────────────────────────────────────────
-            if sub["categories"]:
-                with st.expander(f"AI Score Breakdown — {sub['name']}", expanded=False):
-
-                    # ── Gating warnings ──────────────────────────────────────
-                    ar = sub.get("auto_reject", [])
-                    hr = sub.get("high_risk",   [])
-                    if ar:
-                        ar_items = "".join(f"<li>{r}</li>" for r in ar)
-                        st.markdown(f"""
-                        <div style="background:#2b0f0f;border:1px solid #6e1818;border-radius:8px;
-                                    padding:12px 16px;margin-bottom:12px;">
-                          <div style="font-size:11px;font-weight:700;color:#f85149;
-                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
-                            ⛔ Auto-Reject Gate Triggered</div>
-                          <ul style="margin:0;padding-left:16px;font-size:12px;color:#f85149;">{ar_items}</ul>
-                        </div>""", unsafe_allow_html=True)
-                    if hr:
-                        hr_items = "".join(f"<li>{r}</li>" for r in hr)
-                        st.markdown(f"""
-                        <div style="background:#2b1f05;border:1px solid #9e6a03;border-radius:8px;
-                                    padding:12px 16px;margin-bottom:12px;">
-                          <div style="font-size:11px;font-weight:700;color:#d29922;
-                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
-                            ⚠ High-Risk Flag</div>
-                          <ul style="margin:0;padding-left:16px;font-size:12px;color:#d29922;">{hr_items}</ul>
-                        </div>""", unsafe_allow_html=True)
-
-                    # ── Uploaded file summaries ──────────────────────────────
-                    file_sums = sub.get("file_summaries", [])
-                    if file_sums:
-                        _ftype_icons = {
-                            "pdf": "📄", "image": "🖼", "video": "🎬",
-                            "text": "📝", "other": "📎",
-                        }
-                        _method_labels = {
-                            "PyMuPDF": "PyMuPDF", "pypdf": "pypdf",
-                            "vision_llm+pillow": "LLM Vision", "pillow_metadata": "Pillow",
-                            "cv2+vision": "cv2 + Vision", "cv2": "cv2",
-                            "metadata": "metadata", "utf8": "text", "python-docx": "docx",
-                        }
-                        st.markdown(
-                            '<div style="font-size:10px;font-weight:700;color:#8b949e;'
-                            'text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">'
-                            '📎 Uploaded Files</div>',
-                            unsafe_allow_html=True,
-                        )
-                        fs_cols = st.columns(min(len(file_sums), 3))
-                        for fi, fs in enumerate(file_sums):
-                            with fs_cols[fi % 3]:
-                                ftype_ic = _ftype_icons.get(fs.get("file_type", "other"), "📎")
-                                method_lbl = _method_labels.get(fs.get("extraction_method", ""), fs.get("extraction_method", "—"))
-                                extra = ""
-                                if fs.get("pages"):
-                                    extra = f'{fs["pages"]} pages · '
-                                if fs.get("dimensions"):
-                                    extra = f'{fs["dimensions"]} · '
-                                chars_lbl = f'{fs["chars"]:,} chars' if fs.get("chars") else "—"
-                                size_lbl  = f'{fs["file_size_kb"]} KB' if fs.get("file_size_kb") else ""
-
-                                if fs.get("thumbnail_b64"):
-                                    st.markdown(
-                                        f'<img src="data:image/jpeg;base64,{fs["thumbnail_b64"]}" '
-                                        f'style="width:100%;border-radius:4px;margin-bottom:4px;">',
-                                        unsafe_allow_html=True,
-                                    )
-                                st.markdown(
-                                    f'<div style="background:#0d1117;border:1px solid #21262d;'
-                                    f'border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px;">'
-                                    f'<div style="font-weight:600;color:#e6edf3;margin-bottom:3px;">'
-                                    f'{ftype_ic} {fs["name"][:30]}</div>'
-                                    f'<div style="color:#8b949e;">{extra}{chars_lbl} · {size_lbl}</div>'
-                                    f'<div style="color:#6e7681;font-size:10px;margin-top:2px;">'
-                                    f'via {method_lbl}</div>'
-                                    f'</div>',
-                                    unsafe_allow_html=True,
-                                )
-
-                        # Extracted text preview (collapsible)
-                        raw_text = sub.get("extracted_text", "")
-                        if raw_text.strip():
-                            with st.expander("📄 Extracted Content Preview", expanded=False):
-                                st.code(raw_text[:3000] + ("…" if len(raw_text) > 3000 else ""), language=None)
-
-                    # ── Stage history timeline ────────────────────────────────
-                    hist = sub.get("stage_history", [])
-                    if hist:
-                        dots = ""
-                        for i, entry in enumerate(hist):
-                            is_current = (entry["stage"] == sub["stage"])
-                            sc_clr = next((s["color"] for s in STAGES if s["name"] == entry["stage"]), "#8b949e")
-                            dot_clr = sc_clr if is_current else "#30363d"
-                            txt_clr = sc_clr if is_current else "#6e7681"
-                            fw  = "700" if is_current else "500"
-                            connector = '<span style="color:#30363d;margin:0 4px;">→</span>' if i < len(hist) - 1 else ""
-                            dots += (
-                                f'<span style="font-size:11px;font-weight:{fw};color:{txt_clr};">'
-                                f'<span style="color:{dot_clr};">●</span> {entry["stage"]}'
-                                f'<span style="font-size:9px;color:#6e7681;margin-left:4px;">{entry["moved_at"]}</span>'
-                                f'</span>{connector}'
-                            )
-                        st.markdown(f"""
-                        <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;
-                                    padding:10px 16px;margin-bottom:12px;overflow-x:auto;white-space:nowrap;">
-                          <div style="font-size:10px;font-weight:700;color:#8b949e;
-                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px;">
-                            Stage History</div>
-                          <div>{dots}</div>
-                        </div>""", unsafe_allow_html=True)
-
-                    # ── Stage summary ────────────────────────────────────────
-                    summ = sub.get("stage_summary", "")
-                    if summ:
-                        st.markdown(f"""
-                        <div style="background:#0c1e35;border:1px solid #1f6feb44;border-radius:8px;
-                                    padding:12px 16px;margin-bottom:16px;">
-                          <div style="font-size:10px;font-weight:700;color:#58a6ff;
-                                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">
-                            AI Stage Note — {sub['stage']}</div>
-                          <div style="font-size:12px;color:#b0b8c4;line-height:1.6;">{summ}</div>
-                        </div>""", unsafe_allow_html=True)
-
-                    # ── Top-4 gauges ─────────────────────────────────────────
-                    top4 = list(sub["categories"].items())[:4]
-                    gauge_cols = st.columns(len(top4))
-                    for i, (cid, cd) in enumerate(top4):
-                        with gauge_cols[i]:
-                            st.plotly_chart(
-                                make_gauge(cd["score"], cd["name"]),
-                                use_container_width=True,
-                                key=f"g_{sub['id']}_{i}",
-                            )
-
-                    # ── Per-criterion detail rows ────────────────────────────
-                    st.markdown('<div class="section-hd" style="margin-top:12px;">All Criteria</div>', unsafe_allow_html=True)
-
-                    anchor_colors = {"1-3": "#f85149", "4-6": "#d29922", "7-10": "#3fb950"}
-                    ev_colors     = {"Sufficient": "#3fb950", "Partial": "#d29922", "Insufficient": "#f85149"}
-
-                    for cid, cd in sub["categories"].items():
-                        c        = score_hex(cd["score"])
-                        band_c   = anchor_colors.get(cd.get("anchor_band", "4-6"), "#8b949e")
-                        ev_c     = ev_colors.get(cd.get("evidence", "Partial"), "#8b949e")
-                        s10      = cd.get("score_10", round(cd["score"] / 10, 1))
-                        just_txt = cd.get("justification", "")
-                        ev_lbl   = cd.get("evidence", "Partial")
-                        rf_hits  = cd.get("red_flags", [])
-                        wt       = cd.get("weight", "—")
-
-                        rf_html = ""
-                        if rf_hits:
-                            rf_html = "".join(f'<span style="font-size:10px;color:#f85149;margin-right:8px;">⚑ {rf}</span>' for rf in rf_hits)
-                            rf_html = f'<div style="margin-top:4px;">{rf_html}</div>'
-
-                        st.markdown(f"""
-                        <div style="background:#0d1117;border:1px solid #21262d;border-radius:8px;
-                                    padding:12px 16px;margin-bottom:8px;">
-                          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                            <span style="font-size:13px;font-weight:600;color:#e6edf3;">{cid}</span>
-                            <div style="display:flex;align-items:center;gap:8px;">
-                              <span style="font-size:11px;color:#8b949e;">Weight: {wt}%</span>
-                              <span style="font-size:14px;font-weight:800;color:{c};">{s10}/10</span>
-                              <span style="font-size:10px;font-weight:600;color:{ev_c};
-                                           background:{ev_c}18;border:1px solid {ev_c}44;
-                                           border-radius:4px;padding:1px 6px;">
-                                {ev_lbl}</span>
-                            </div>
-                          </div>
-                          <div style="background:#21262d;border-radius:2px;height:4px;margin-bottom:8px;">
-                            <div style="width:{cd['score']}%;background:{c};height:100%;border-radius:2px;"></div>
-                          </div>
-                          <div style="font-size:12px;color:#8b949e;line-height:1.5;">{just_txt}</div>
-                          {rf_html}
-                        </div>""", unsafe_allow_html=True)
-
-                    scored_at = sub.get("scored_at", "")
-                    if scored_at:
-                        st.markdown(f'<div style="font-size:11px;color:#8b949e;margin-top:8px;text-align:right;">Scored at {scored_at}</div>', unsafe_allow_html=True)
-
-            st.markdown("<hr style='margin:2px 0;border-color:#161b22;'>", unsafe_allow_html=True)
+            _render_submission_table_row(sub, rubric)
 
     else:
         st.markdown("""
@@ -3466,6 +6981,66 @@ elif page == "Submissions":
             <div class="empty-title">No submissions yet</div>
             <div class="empty-sub">Use the New Submission panel above to add an idea.</div>
         </div>""", unsafe_allow_html=True)
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: SHORTLIST — Category folders
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Shortlist":
+
+    _sl_total = _shortlist_total_count()
+    st.markdown(f"""
+    <div class="forge-topbar">
+      <div class="forge-topbar-left">
+        <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Shortlist</span></div>
+        <div class="forge-page-tag">Saved Ideas</div>
+      </div>
+      <div class="forge-topbar-status">
+        <div class="forge-status-dot"></div>
+        {_sl_total} shortlisted
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="page-content">', unsafe_allow_html=True)
+
+    if st.session_state.flash_msg:
+        ftype, fmsg = st.session_state.flash_msg
+        st.session_state.flash_msg = None
+        if ftype == "success":
+            st.success(fmsg)
+        elif ftype == "info":
+            st.info(fmsg)
+        elif ftype == "warning":
+            st.warning(fmsg)
+        else:
+            st.error(fmsg)
+
+    _maybe_open_shortlist_dialog()
+    _maybe_open_memo_dialog()
+    _maybe_open_criterion_deep_dive_dialog()
+
+    view_cat = st.session_state.get("shortlist_view_category")
+    prev_sl_view = st.session_state.get("_tracked_sl_view")
+    if prev_sl_view != view_cat:
+        if prev_sl_view is not None:
+            _close_criterion_detail_dialog()
+        st.session_state._tracked_sl_view = view_cat
+
+    if view_cat and view_cat in SHORTLIST_CATEGORIES:
+        _render_shortlist_category_detail(view_cat, rubric)
+    elif _sl_total == 0:
+        st.markdown("""
+        <div class="empty-state">
+            <div class="empty-icon">⭐</div>
+            <div class="empty-title">No ideas on your Shortlist yet</div>
+            <div class="empty-sub">On the Submissions page, click <strong>⭐ Shortlist</strong><br>
+            on any scored idea to save it into a category folder.</div>
+        </div>""", unsafe_allow_html=True)
+    else:
+        _render_shortlist_folder_grid()
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -3570,7 +7145,7 @@ elif page == "Pipeline":
                     at_last = cur_idx >= len(STAGE_NAMES) - 1
                     btn_score, btn_adv = st.columns(2)
                     with btn_score:
-                        if st.button("Score", key=f"pipe_sc_{sub['id']}"):
+                        if st.button("Score", key=f"pipe_sc_{sub['id']}", use_container_width=True):
                             mode_label = st.session_state.get("scoring_mode", "Simulated")
                             with st.spinner(f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"):
                                 if mode_label == "Simulated":
@@ -3587,12 +7162,14 @@ elif page == "Pipeline":
                                     "scored_at":   sc2["scored_at"],
                                     "status":      "Scored",
                                 })
+                                st.session_state.investment_memos.pop(sub["id"], None)
+                                _clear_criterion_detail_cache(sub["id"])
                                 gate_note  = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
                                 fallback_note = f" · ⚠ {warn2}" if warn2 else ""
                                 st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}{fallback_note}")
                                 st.rerun()
                     with btn_adv:
-                        if st.button("Advance →", key=f"pipe_adv_{sub['id']}", disabled=at_last):
+                        if st.button("Advance", key=f"pipe_adv_{sub['id']}", disabled=at_last, use_container_width=True):
                             new_stage = STAGE_NAMES[cur_idx + 1]
                             with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
                                 time.sleep(0.5)

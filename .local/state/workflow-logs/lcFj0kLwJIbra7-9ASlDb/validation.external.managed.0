@@ -1,0 +1,45 @@
+VERDICT: APPROVED_WITH_COMMENTS
+The diff correctly implements the core task: users can now paste/type an API key in Rubric Settings (password input), the key is stored in `st.session_state` for the active session, LLM calls use that session key via `_eVERDICT: APPROVED_WITH_COMMENTS
+ffective_llm_key()`, and Real LLM mode is conditionally enabled when a key is available.
+
+Critical findings / analysis:
+- Functional requirement coverage is strong:
+  - In-app key entry appears only when `FORGE_LLM_API_KEY` is absent.
+  - Key is session-scoped (`st.session_state.session_llm_key`) and not written to disk.
+  - Request auth header now uses `_effective_llm_key()` so session-entered keys actually power real calls.
+  - Routing logic (`_llm_ready()`) correctly falls back to simulated scoring when no key exists.
+  - UI messaging explicitly explains session-only behavior and non-persistence.
+- The “Real LLM option selectable after key entered” behavior is effectively met: once a non-empty key is entered, `_key_available` becomes true and the radio is re-enabled/selectable.
+
+Comments (non-blocking):
+1) `_LLM_AVAILABLE` is now effectively env-only and appears stale/mostly redundant after introducing `_llm_ready()`. Keeping both may confuse future maintenance.
+2) UI shows a masked preview with the first 6 key chars (`key_preview`). This is not a blocker, but it is a minor secret-exposure risk in shared-screen contexts; consider fully masking.
+3) “Valid key” is treated as “non-empty key.” That matches practical UX, but true validity is only known after API call; optional inline validation could improve clarity.
+
+Security: none observed at serious/blocking level. No plaintext disk persistence introduced; key stays in session memory and is used only for auth header to configured endpoint.
+
+Next actions:
+1) Remove or repurpose `_LLM_AVAILABLE` to avoid dual-source ambiguity.
+2) Consider eliminating partial key preview (show generic “Key entered” only).
+3) Optionally add lightweight key verification UX (test call) if product requires stronger “valid key” semantics.The diff correctly implements the core task: users can now paste/type an API key in Rubric Settings (password input), the key is stored in `st.session_state` for the active session, LLM calls use that session key via `_effective_llm_key()`, and Real LLM mode is conditionally enabled when a key is available.
+
+Critical findings / analysis:
+- Functional requirement coverage is strong:
+  - In-app key entry appears only when `FORGE_LLM_API_KEY` is absent.
+  - Key is session-scoped (`st.session_state.session_llm_key`) and not written to disk.
+  - Request auth header now uses `_effective_llm_key()` so session-entered keys actually power real calls.
+  - Routing logic (`_llm_ready()`) correctly falls back to simulated scoring when no key exists.
+  - UI messaging explicitly explains session-only behavior and non-persistence.
+- The “Real LLM option selectable after key entered” behavior is effectively met: once a non-empty key is entered, `_key_available` becomes true and the radio is re-enabled/selectable.
+
+Comments (non-blocking):
+1) `_LLM_AVAILABLE` is now effectively env-only and appears stale/mostly redundant after introducing `_llm_ready()`. Keeping both may confuse future maintenance.
+2) UI shows a masked preview with the first 6 key chars (`key_preview`). This is not a blocker, but it is a minor secret-exposure risk in shared-screen contexts; consider fully masking.
+3) “Valid key” is treated as “non-empty key.” That matches practical UX, but true validity is only known after API call; optional inline validation could improve clarity.
+
+Security: none observed at serious/blocking level. No plaintext disk persistence introduced; key stays in session memory and is used only for auth header to configured endpoint.
+
+Next actions:
+1) Remove or repurpose `_LLM_AVAILABLE` to avoid dual-source ambiguity.
+2) Consider eliminating partial key preview (show generic “Key entered” only).
+3) Optionally add lightweight key verification UX (test call) if product requires stronger “valid key” semantics.

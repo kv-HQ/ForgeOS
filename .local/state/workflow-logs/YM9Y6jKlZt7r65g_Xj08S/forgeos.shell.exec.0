@@ -1,0 +1,12 @@
+[0m
+[34m[1m  You can now view your Streamlit app in your browser.[0m
+[0m
+[34m  URL: [0m[1mhttp://0.0.0.0:5000[0m
+[0m
+2026-05-22 21:21:58.059 Received event for non-watched file: /home/runner/workspace/app.py
+2026-05-22 21:22:15.630 Received event for non-watched file: /home/runner/workspace/app.py
+2026-05-22 21:22:25.653 Received event for non-watched file: /home/runner/workspace/app.py
+2026-05-22 21:22:59.277 Received event for non-watched file: /home/runner/workspace/app.py
+2026-05-22 21:23:16.157 Received event for non-watched file: /home/runner/workspace/app.py
+2026-05-22 21:23:41.333 Received event for non-watched file: /home/runner/workspace/app.py
+[34m  Stopping...[0m

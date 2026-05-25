@@ -1,0 +1,41 @@
+VERDICT: APPROVED_WITH_COMMENTS
+The diff successfully implements concurrent bulk scoring with live progress and per-item state commits, and it includes a sequential fallback path when rate limits are encountered.
+
+Critical findings / analysis:
+- Core task objective is met: `Process All with AI` now runs submissions in parallel using `ThreadPoolExecutor` with bounded concurrency (`max 5` in Real LLM mode, `max 3` simulated).
+- Concurrency implementation is architecturally sound for Streamlit constraints: workers are kept “pure” (no `st.session_state` access), and session-state mutation happens only on the main thread as futures complete.
+- Live progress requirement is met: progress bar updates incrementally and status includes currently in-flight idea names, reflecting simultaneous scoring.
+- Incremental persistence requirement is met: each completed future immediately updates the corresponding submission in `st.session_state` to `Scored`.
+- Rate-limit fallback requirement is substantially met: on 429/rate errors, a shared stop event is set, queued futures are canceled, and remaining `New` items are finished sequentially with simulated scoring.
+
+Non-blocking concerns worth noting:
+- Over-broad exception VERDICT: APPROVED_WITH_COMMENTS
+handling in `as_completed` (`except Exception: continue`) swallows non-rate worker failures silently; recovery still occurs via `still_new` sequential scoring, but diagnostics are weakerThe diff successfully implements concurrent bulk scoring with live progress and per-item state commits, and it includes a sequential fallback path when rate limits are encountered.
+.
+- The fallback status copy always says “Rate limit hit” whenever `still_new` 
+exists; this can be misleading if remaining `New` items came from non-rate Critical findings / analysis:
+exceptions/cancellations.
+- `_ai_score_llm_pure` may raise non-`RuntimeEr- Core task objective is met: `Process All with AI` now runs submissions in parallel using `ThreadPoolExecutor` with bounded concurrency (`max 5` in Real LLM mode, `max 3` simulated).
+ror` parse/key errors that bypass worker’s internal fallback and rely on outer gener- Concurrency implementation is architecturally sound for Streamlit constraints: workers are kept “pure” (no `st.session_state` access), and session-state mutation happens only on the main thread as futures complete.
+ic handling; behavior remains safe but messaging/traceability is re- Live progress requirement is met: progress bar updates incrementally and status includes currently in-flight idea names, reflecting simultaneous scoring.
+duced.
+
+Security: none observed (no serious authz, secret handling, injection, or data-leak regression introduced by this diff).
+
+Next actions (high-impact):
+1) Narrow exception taxonomy in worker (e.g., catch JSON/key parse errors) and convert to explicit warning + simulated fallback, instead of relying on outer s- Incremental persistence requirement is met: each completed future immediately updates the corresponding submission in `st.session_state` to `Scored`.
+ilent catch.
+2) Differentiate user-facing fallback messages (rate-limit vs generic LLM failure) so - Rate-limit fallback requirement is substantially met: on 429/rate errors, a shared stop event is set, queued futures are canceled, and remaining `New` items are finished sequentially with simulated scoring.
+operational behavior is accurately reported.
+3) Consider surfacing
+ a compact aggregated warning summary (count by error type) after bulk rNon-blocking concerns worth noting:
+un for better observability.- Over-broad exception handling in `as_completed` (`except Exception: continue`) swallows non-rate worker failures silently; recovery still occurs via `still_new` sequential scoring, but diagnostics are weaker.
+- The fallback status copy always says “Rate limit hit” whenever `still_new` exists; this can be misleading if remaining `New` items came from non-rate exceptions/cancellations.
+- `_ai_score_llm_pure` may raise non-`RuntimeError` parse/key errors that bypass worker’s internal fallback and rely on outer generic handling; behavior remains safe but messaging/traceability is reduced.
+
+Security: none observed (no serious authz, secret handling, injection, or data-leak regression introduced by this diff).
+
+Next actions (high-impact):
+1) Narrow exception taxonomy in worker (e.g., catch JSON/key parse errors) and convert to explicit warning + simulated fallback, instead of relying on outer silent catch.
+2) Differentiate user-facing fallback messages (rate-limit vs generic LLM failure) so operational behavior is accurately reported.
+3) Consider surfacing a compact aggregated warning summary (count by error type) after bulk run for better observability.

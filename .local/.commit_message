@@ -1,0 +1,17 @@
+Fix HTML rendering bug in Pipeline kanban cards
+
+Root cause: multiline f-strings in st.markdown(unsafe_allow_html=True)
+cause Streamlit's markdown parser to escape HTML tags that appear at the
+start of a new line (e.g. </div>, <span class="pill">), displaying them
+as literal text instead of rendering them.
+
+Fixes applied:
+- Added `import html as _html` at the top of app.py
+- Kanban card HTML rebuilt as a single-line concatenated string (no
+  multiline f-string) so no tag ever appears at line-start
+- All user-provided values (sub['name'], sub['id'], sub['status']) now
+  passed through _html.escape() before interpolation
+- Kanban column header also converted to single-line concatenation with
+  _html.escape() on stage name
+
+Files changed: app.py

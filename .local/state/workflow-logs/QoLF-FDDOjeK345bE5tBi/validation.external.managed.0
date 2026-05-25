@@ -1,0 +1,31 @@
+VERDICT: REJECTED
+The diff introduces concurrent bulk scoring with `ThreadPoolExecutor` and incremental session-state updates, but it does not satisfy a core requirement: there is no fallback to **sequential LLM processing** after rate-limit events.
+
+Critical findings:
+- ✅ Parallelization is implemented (up to 5 workers in Real LLM mode, 3 in Simulated), and results are written back per completed future (`as_completed`), which meets the incremental commit requirement.
+- ✅ A live status/progresVERDICT: REJECTED
+s UI exists and updates as tasks complete.
+- ❌ **Missing core behavior:** on API rate-limit signals ("rate"/"429" in warning), the code only counts hits and shows a warning; it does not switch remaining jobs to sequential mode. Instead, fallback happens inside `route_scoring` to simulated scoring per failed request. This diverges from the stated requirement and changes scoring quality semantics.
+- ⚠️ Architectural risk: worker threads call `route_scoring()`, which reads `st.session_state` (`scoring_mode`, session key). Streamlit session APIs in background threads are fragile and can fail depending on runtime context. Even if it works now, this coupling undermines reliability of concurrent LLM mode.
+- ⚠️ Minor: “simultaneous scoring” display is based on all not-yet-completed IDs, so it can label queued items as “scoring,” overstating true concurrency.
+
+Security: none observed.
+
+Next actions:
+1) Implement true rate-limit fallback flow: when a 429/rate-limit is detected, stop submittThe diff introduces concurrent bulk scoring with `ThreadPoolExecutor` and incremental session-state updates, but it does not satisfy a core requirement: there is no fallback to **sequential LLM processing** after rate-limit events.
+ing/awaiting further concurrent LLM calls and process remaining unscored submissions s
+equentially (preferably with backoff).
+2) Remove Streamlit/sessioCritical findings:
+n-state dependencies from worker threads by passing immutable config into workers- ✅ Parallelization is implemented (up to 5 workers in Real LLM mode, 3 in Simulated), and results are written back per completed future (`as_completed`), which meets the incremental commit requirement.
+ (mode, API key, rubric snapshot) and invoking pure scoring functio- ✅ A live status/progress UI exists and updates as tasks complete.
+ns there.
+3) Update live status to track actual in-flight futures (- ❌ **Missing core behavior:** on API rate-limit signals ("rate"/"429" in warning), the code only counts hits and shows a warning; it does not switch remaining jobs to sequential mode. Instead, fallback happens inside `route_scoring` to simulated scoring per failed request. This diverges from the stated requirement and changes scoring quality semantics.
+running set), not all pending items, so UI accurately reflects simult- ⚠️ Architectural risk: worker threads call `route_scoring()`, which reads `st.session_state` (`scoring_mode`, session key). Streamlit session APIs in background threads are fragile and can fail depending on runtime context. Even if it works now, this coupling undermines reliability of concurrent LLM mode.
+aneous work.- ⚠️ Minor: “simultaneous scoring” display is based on all not-yet-completed IDs, so it can label queued items as “scoring,” overstating true concurrency.
+
+Security: none observed.
+
+Next actions:
+1) Implement true rate-limit fallback flow: when a 429/rate-limit is detected, stop submitting/awaiting further concurrent LLM calls and process remaining unscored submissions sequentially (preferably with backoff).
+2) Remove Streamlit/session-state dependencies from worker threads by passing immutable config into workers (mode, API key, rubric snapshot) and invoking pure scoring functions there.
+3) Update live status to track actual in-flight futures (running set), not all pending items, so UI accurately reflects simultaneous work.
