@@ -88,7 +88,6 @@ class BulkUploadTests(unittest.TestCase):
         sid, fc, chars = self.ns["_append_submission_from_upload"](
             "Smart Bottle Cap",
             "Pilot notes",
-            "Intake",
             None,
             False,
         )
@@ -99,13 +98,85 @@ class BulkUploadTests(unittest.TestCase):
         sub = self.mock_st.session_state["submissions"][0]
         self.assertEqual(sub["name"], "Smart Bottle Cap")
         self.assertEqual(sub["notes"], "Pilot notes")
-        self.assertEqual(sub["stage"], "Intake")
+        self.assertEqual(sub["stage"], "Market Test")
+        self.assertEqual(sub["intake_stage_recommendation"]["recommended_stage"], "Market Test")
+
+    def test_append_submission_persists_stage_recommendation(self):
+        rec = {
+            "recommended_stage": "Prototyping",
+            "confidence": 84,
+            "explanation": "Prototype and BOM evidence indicate build readiness.",
+            "source": "heuristic",
+        }
+        self.ns["_append_submission_from_upload"](
+            "Tooling Concept",
+            "Includes early BOM and supplier notes.",
+            None,
+            False,
+            stage_recommendation=rec,
+        )
+        sub = self.mock_st.session_state["submissions"][0]
+        self.assertEqual(sub["intake_stage_recommendation"]["recommended_stage"], "Prototyping")
+        self.assertEqual(sub["intake_stage_recommendation"]["confidence"], 84)
+
+    def test_append_submission_auto_assigns_recommended_stage(self):
+        rec = {
+            "recommended_stage": "Market Test",
+            "confidence": 81,
+            "explanation": "Pilot traction suggests readiness for market testing.",
+            "source": "heuristic",
+        }
+        self.ns["_append_submission_from_upload"](
+            "Pilot Product",
+            "Has early customers and preorder momentum.",
+            None,
+            False,
+            stage_recommendation=rec,
+        )
+        sub = self.mock_st.session_state["submissions"][0]
+        self.assertEqual(sub["stage"], "Market Test")
+        self.assertFalse(sub["intake_stage_manual_override"])
+
+    def test_append_submission_respects_manual_stage_override(self):
+        rec = {
+            "recommended_stage": "Scaling",
+            "confidence": 86,
+            "explanation": "Distribution and production plans suggest scale readiness.",
+            "source": "heuristic",
+        }
+        self.ns["_append_submission_from_upload"](
+            "Operator Review",
+            "User chose an earlier intake stage manually.",
+            None,
+            False,
+            stage_recommendation=rec,
+            manual_stage_override=True,
+            fallback_stage="Validation",
+        )
+        sub = self.mock_st.session_state["submissions"][0]
+        self.assertEqual(sub["stage"], "Validation")
+        self.assertTrue(sub["intake_stage_manual_override"])
 
     def test_reset_bulk_upload_form_clears_row_keys(self):
         self.ns["_reset_bulk_upload_form"]()
         self.assertEqual(self.mock_st.session_state["bulk_upload_row_ids"], [0])
         self.assertIsNone(self.mock_st.session_state.get("bulk_name_1"))
         self.assertIsNone(self.mock_st.session_state.get("bulk_notes_1"))
+
+    def test_local_stage_recommendation_detects_prototyping(self):
+        rec, warning = self.ns["recommend_starting_stage"](
+            "Adaptive hinge system",
+            "Working prototype with BOM and supplier quote.",
+            "The deck includes CAD renders, tooling notes, and a bill of materials for the pilot build.",
+            [{"name": "deck.pdf", "file_type": "pdf", "chars": 4200, "extraction_method": "pypdf"}],
+            allow_llm=False,
+        )
+        self.assertIsNone(warning)
+        self.assertEqual(rec["recommended_stage"], "Prototyping")
+        self.assertGreaterEqual(rec["confidence"], 70)
+
+    def test_stage_display_name_maps_concept_refinement(self):
+        self.assertEqual(self.ns["_stage_display_name"]("Concept"), "Concept Refinement")
 
 
 if __name__ == "__main__":

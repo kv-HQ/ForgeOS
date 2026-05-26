@@ -10,6 +10,7 @@ import html as _html
 import urllib.request
 import urllib.error
 import threading
+from contextlib import nullcontext
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 import pandas as pd
@@ -859,11 +860,43 @@ html, body, .stApp,
   background: var(--card); border: 1px solid var(--border);
   border-radius: var(--r-sm); padding: 11px 13px; margin-bottom: 7px;
   box-shadow: var(--shadow-sm); transition: all var(--dur) var(--ease);
-  cursor: default; border-left-width: 3px;
+  cursor: pointer; border-left-width: 3px; position: relative; overflow: hidden;
+  display: block; text-decoration: none !important;
 }
 .kanban-card:hover {
-  border-color: rgba(59,130,246,0.32); box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  border-color: rgba(59,130,246,0.42); box-shadow: 0 14px 32px rgba(0,0,0,0.34);
+  transform: translateY(-4px);
+}
+.kanban-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(59,130,246,0.10) 0%, rgba(59,130,246,0.0) 55%);
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+  pointer-events: none;
+}
+.kanban-card:hover::after {
+  opacity: 1;
+}
+div[data-testid="stMarkdown"]:has(.kanban-card) + div[data-testid="stButton"] {
+  margin-top: -100px !important;
+  margin-bottom: 29px !important;
+  position: relative;
+  z-index: 4;
+}
+div[data-testid="stMarkdown"]:has(.kanban-card) + div[data-testid="stButton"] > button {
+  min-height: 100px !important;
+  height: 100px !important;
+  opacity: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+div[data-testid="stMarkdown"]:has(.kanban-card) + div[data-testid="stButton"] > button:hover {
+  transform: none !important;
+  box-shadow: none !important;
 }
 .kanban-card-title {
   font-size: 12px; font-weight: 500; color: var(--text-1);
@@ -877,6 +910,93 @@ html, body, .stApp,
   font-size: 12px; color: var(--text-3); text-align: center;
   padding: 22px 8px; border: 1px dashed var(--border);
   border-radius: var(--r-sm); background: rgba(255,255,255,0.01);
+}
+.pipeline-detail-shell {
+  background: linear-gradient(180deg, rgba(15,23,36,0.96) 0%, rgba(12,19,31,0.96) 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 20px 22px;
+  box-shadow: var(--shadow-md);
+  margin-bottom: 18px;
+}
+.pipeline-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+.pipeline-detail-pill {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+.profile-stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+  min-height: 110px;
+}
+.profile-stat-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.profile-stat-value {
+  margin-top: 8px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-1);
+}
+.profile-stat-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-3);
+  line-height: 1.5;
+}
+.timeline-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.timeline-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.timeline-step:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  margin-top: 4px;
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.03);
+}
+.timeline-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-1);
+}
+.timeline-step-date {
+  font-size: 11px;
+  color: var(--text-3);
+  margin-top: 3px;
 }
 
 /* ══ Stage flow card (dashboard pipeline) ═══════════════════════ */
@@ -1580,6 +1700,23 @@ def load_rubric():
 
 rubric = load_rubric()
 
+def _debug_log(message: str, data: dict | None = None, *, hypothesis_id: str = "GEN", run_id: str = "pre-fix", location: str = "app.py") -> None:
+    # #region agent log
+    try:
+        with open("debug-8f7ea9.log", "a", encoding="utf-8") as _dbg_f:
+            _dbg_f.write(json.dumps({
+                "sessionId": "8f7ea9",
+                "runId": run_id,
+                "hypothesisId": hypothesis_id,
+                "location": location,
+                "message": message,
+                "data": data or {},
+                "timestamp": int(time.time() * 1000),
+            }) + "\n")
+    except Exception:
+        pass
+    # #endregion
+
 # ─── Session State ────────────────────────────────────────────────────────────
 if "submissions" not in st.session_state:
     st.session_state.submissions = []
@@ -1591,6 +1728,12 @@ if "bulk_upload_row_ids" not in st.session_state:
     st.session_state.bulk_upload_row_ids = [0]
 if "bulk_upload_next_row_id" not in st.session_state:
     st.session_state.bulk_upload_next_row_id = 1
+if "single_stage_analysis" not in st.session_state:
+    st.session_state.single_stage_analysis = None
+if "single_stage_analysis_request_sig" not in st.session_state:
+    st.session_state.single_stage_analysis_request_sig = None
+if "bulk_stage_analysis_cache" not in st.session_state:
+    st.session_state.bulk_stage_analysis_cache = {}
 if "scoring_mode" not in st.session_state:
     st.session_state.scoring_mode = "Simulated"
 if "session_llm_key" not in st.session_state:
@@ -1666,14 +1809,39 @@ if "_tracked_nav_page" not in st.session_state:
     st.session_state._tracked_nav_page = None
 if "_tracked_sl_view" not in st.session_state:
     st.session_state._tracked_sl_view = None
+if "pipeline_detail_sub_id" not in st.session_state:
+    st.session_state.pipeline_detail_sub_id = None
 
 # Landing / navigation (Home is default entry point)
 NAV_OPTIONS = ["Home", "Dashboard", "Submissions", "Shortlist", "Pipeline", "Rubric Settings"]
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "Home"
 
+
+def _apply_nav_from_query_params() -> None:
+    """Honor deep-link query params before sidebar navigation renders."""
+    page_q = st.query_params.get("page")
+    if page_q in NAV_OPTIONS:
+        st.session_state.nav_page = page_q
+    pipe_q = st.query_params.get("pipeline")
+    detail_q = st.query_params.get("submission")
+    if pipe_q == "detail" and detail_q:
+        st.session_state.nav_page = "Pipeline"
+        st.session_state.pipeline_detail_sub_id = detail_q
+
+
+_apply_nav_from_query_params()
+
 # Landing CTA link (?dashboard=1) → enter app
 if st.query_params.get("dashboard") == "1":
+    # #region agent log
+    _debug_log(
+        "dashboard query param redirect triggered",
+        {"dashboard": st.query_params.get("dashboard"), "nav_page_before": st.session_state.get("nav_page")},
+        hypothesis_id="H4",
+        location="app.py:1696",
+    )
+    # #endregion
     st.session_state.nav_page = "Dashboard"
     st.query_params.clear()
     st.rerun()
@@ -1846,8 +2014,36 @@ STAGES = rubric.get("pipeline_stages", [
 ])
 STAGE_NAMES = [s["name"] for s in STAGES]
 THRESHOLDS  = rubric.get("scoring_thresholds", {"green": 70, "yellow": 50})
+STAGE_DISPLAY_OVERRIDES = {
+    "Concept": "Concept Refinement",
+}
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
+def _stage_display_name(stage_name: str) -> str:
+    """Friendly stage label for UI surfaces without changing stored values."""
+    return STAGE_DISPLAY_OVERRIDES.get(stage_name, stage_name)
+
+
+def _normalize_stage_name(stage_name: str) -> str:
+    """Map model or heuristic output back to an internal pipeline stage."""
+    raw = (stage_name or "").strip().lower()
+    if raw in ("concept refinement", "concept", "concept review"):
+        return "Concept"
+    for stage in STAGE_NAMES:
+        if raw == stage.lower():
+            return stage
+    return "Intake"
+
+
+def _stage_color(stage_name: str) -> str:
+    """Return configured stage color for cards and badges."""
+    stage_norm = _normalize_stage_name(stage_name)
+    for stage in STAGES:
+        if stage["name"] == stage_norm:
+            return stage.get("color", "#8b949e")
+    return "#8b949e"
+
+
 def score_badge_class(score):
     if score >= THRESHOLDS["green"]:  return "badge-green"
     if score >= THRESHOLDS["yellow"]: return "badge-yellow"
@@ -1947,6 +2143,7 @@ def _render_submission_table_row(
     key_prefix: str = "sub",
     show_shortlist: bool = True,
     show_remove_shortlist: bool = False,
+    show_advance: bool = False,
 ):
     """
     One bordered row: data cells, action buttons, optional score breakdown.
@@ -1995,7 +2192,7 @@ def _render_submission_table_row(
 
         with row[8]:
             is_scored = bool(sub.get("categories"))
-            n_act = 5 if is_scored else 4
+            n_act = (5 if is_scored else 4) - (0 if show_advance else 1)
             act_cols = st.columns(n_act, gap="small")
             ai = 0
             with act_cols[ai]:
@@ -2036,41 +2233,42 @@ def _render_submission_table_row(
                         )
                         st.rerun()
             ai += 1
-            with act_cols[ai]:
-                cur_stage_idx = (
-                    STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
-                )
-                at_last = cur_stage_idx >= len(STAGE_NAMES) - 1
-                if st.button(
-                    "Advance",
-                    key=f"{key_prefix}_adv_{sid}",
-                    disabled=at_last,
-                    use_container_width=True,
-                ):
-                    new_stage = STAGE_NAMES[cur_stage_idx + 1]
-                    with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
-                        time.sleep(0.5)
-                        idx = next(
-                            i for i, s in enumerate(st.session_state.submissions)
-                            if s["id"] == sub["id"]
-                        )
-                        summary = generate_stage_summary(
-                            st.session_state.submissions[idx], new_stage
-                        )
-                        hist = st.session_state.submissions[idx].get("stage_history", [])
-                        hist.append({
-                            "stage": new_stage,
-                            "moved_at": datetime.now().strftime("%Y-%m-%d"),
-                        })
-                        st.session_state.submissions[idx]["stage"] = new_stage
-                        st.session_state.submissions[idx]["stage_summary"] = summary
-                        st.session_state.submissions[idx]["stage_history"] = hist
-                        st.session_state.flash_msg = (
-                            "info",
-                            f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated",
-                        )
-                        st.rerun()
-            ai += 1
+            if show_advance:
+                with act_cols[ai]:
+                    cur_stage_idx = (
+                        STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
+                    )
+                    at_last = cur_stage_idx >= len(STAGE_NAMES) - 1
+                    if st.button(
+                        "Advance",
+                        key=f"{key_prefix}_adv_{sid}",
+                        disabled=at_last,
+                        use_container_width=True,
+                    ):
+                        new_stage = STAGE_NAMES[cur_stage_idx + 1]
+                        with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
+                            time.sleep(0.5)
+                            idx = next(
+                                i for i, s in enumerate(st.session_state.submissions)
+                                if s["id"] == sub["id"]
+                            )
+                            summary = generate_stage_summary(
+                                st.session_state.submissions[idx], new_stage
+                            )
+                            hist = st.session_state.submissions[idx].get("stage_history", [])
+                            hist.append({
+                                "stage": new_stage,
+                                "moved_at": datetime.now().strftime("%Y-%m-%d"),
+                            })
+                            st.session_state.submissions[idx]["stage"] = new_stage
+                            st.session_state.submissions[idx]["stage_summary"] = summary
+                            st.session_state.submissions[idx]["stage_history"] = hist
+                            st.session_state.flash_msg = (
+                                "info",
+                                f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated",
+                            )
+                            st.rerun()
+                ai += 1
             if is_scored:
                 with act_cols[ai]:
                     if st.button(
@@ -2476,7 +2674,321 @@ def _render_shortlist_category_detail(category: str, rubric_data):
             key_prefix=f"sl_{cat_idx}",
             show_shortlist=False,
             show_remove_shortlist=True,
+            show_advance=True,
         )
+
+
+def _open_pipeline_detail(sub_id: str) -> None:
+    """Open the full-page pipeline detail profile for one submission."""
+    st.session_state.pipeline_detail_sub_id = sub_id
+    st.session_state.nav_page = "Pipeline"
+    # #region agent log
+    _debug_log(
+        "open pipeline detail",
+        {"sub_id": sub_id, "nav_page": st.session_state.nav_page},
+        hypothesis_id="H1",
+        run_id="post-fix",
+        location="app.py:_open_pipeline_detail",
+    )
+    # #endregion
+
+
+def _close_pipeline_detail() -> None:
+    """Return from the pipeline detail profile to the kanban board."""
+    st.session_state.pipeline_detail_sub_id = None
+
+
+def _sync_pipeline_detail_from_query() -> None:
+    """Keep pipeline detail route in sync with URL query params."""
+    pipe_q = st.query_params.get("pipeline")
+    detail_q = st.query_params.get("submission")
+    # #region agent log
+    _debug_log(
+        "sync pipeline detail from query",
+        {
+            "pipe_q": pipe_q,
+            "detail_q": detail_q,
+            "nav_page": st.session_state.get("nav_page"),
+            "pipeline_detail_sub_id_before": st.session_state.get("pipeline_detail_sub_id"),
+        },
+        hypothesis_id="H2",
+        location="app.py:2630",
+    )
+    # #endregion
+    if pipe_q == "detail" and detail_q:
+        st.session_state.pipeline_detail_sub_id = detail_q
+        st.session_state.nav_page = "Pipeline"
+    # #region agent log
+    _debug_log(
+        "sync pipeline detail from query complete",
+        {"pipeline_detail_sub_id_after": st.session_state.get("pipeline_detail_sub_id")},
+        hypothesis_id="H2",
+        run_id="post-fix",
+        location="app.py:_sync_pipeline_detail_from_query",
+    )
+    # #endregion
+
+
+def _render_pipeline_stage_timeline(sub: dict) -> None:
+    """Professional vertical timeline for pipeline detail pages."""
+    hist = sub.get("stage_history", []) or []
+    if not hist:
+        st.markdown(
+            '<div class="timeline-card"><div style="font-size:12px;color:var(--text-3);">No stage history yet.</div></div>',
+            unsafe_allow_html=True,
+        )
+        return
+
+    steps_html = ""
+    for entry in hist:
+        stage_name = entry.get("stage", "")
+        stage_color = _stage_color(stage_name)
+        steps_html += (
+            f'<div class="timeline-step">'
+            f'<div class="timeline-dot" style="background:{stage_color};"></div>'
+            f'<div>'
+            f'<div class="timeline-step-title">{_esc(_stage_display_name(stage_name))}</div>'
+            f'<div class="timeline-step-date">{_esc(entry.get("moved_at", ""))}</div>'
+            f'</div>'
+            f'</div>'
+        )
+    st.markdown(f'<div class="timeline-card">{steps_html}</div>', unsafe_allow_html=True)
+
+
+def _render_submission_evidence_panel(sub: dict) -> None:
+    """Focused evidence panel for full-page submission profiles."""
+    file_sums = sub.get("file_summaries", []) or []
+    if file_sums:
+        _ftype_icons = {
+            "pdf": "📄", "image": "🖼", "video": "🎬",
+            "text": "📝", "other": "📎",
+        }
+        ext_note = sub.get("extraction_note") or _build_extraction_note(file_sums)
+        if ext_note:
+            st.markdown(
+                f'<div style="font-size:11px;color:#8aa4c0;background:rgba(59,130,246,0.08);'
+                f'border:1px solid rgba(59,130,246,0.2);border-radius:6px;'
+                f'padding:8px 12px;margin-bottom:10px;">📎 {_esc(ext_note)}</div>',
+                unsafe_allow_html=True,
+            )
+        cols = st.columns(min(len(file_sums), 3))
+        for idx, fs in enumerate(file_sums):
+            with cols[idx % 3]:
+                ftype_ic = _ftype_icons.get(fs.get("file_type", "other"), "📎")
+                chars_lbl = f'{fs.get("chars", 0):,} chars' if fs.get("chars") else "—"
+                size_lbl = f'{fs.get("file_size_kb")} KB' if fs.get("file_size_kb") else ""
+                if fs.get("thumbnail_b64"):
+                    st.markdown(
+                        f'<img src="data:image/jpeg;base64,{fs["thumbnail_b64"]}" '
+                        f'style="width:100%;border-radius:8px;margin-bottom:6px;" alt="">',
+                        unsafe_allow_html=True,
+                    )
+                st.markdown(
+                    f'<div class="profile-stat-card" style="min-height:0;">'
+                    f'<div class="profile-stat-label">{ftype_ic} {_esc(fs.get("name", ""))}</div>'
+                    f'<div class="profile-stat-sub" style="margin-top:8px;">'
+                    f'{_esc(fs.get("extraction_method", "none"))} · {chars_lbl}'
+                    f'{(" · " + size_lbl) if size_lbl else ""}</div>'
+                    f'<div class="profile-stat-sub">{_esc((fs.get("preview") or "No preview available.")[:180])}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+    raw_text = (sub.get("extracted_text") or "").strip()
+    if raw_text:
+        with st.expander(f"Extracted Content ({len(raw_text):,} chars)", expanded=False):
+            st.code(raw_text[:8000] + ("…" if len(raw_text) > 8000 else ""), language=None)
+    elif not file_sums:
+        st.markdown(
+            '<div class="profile-stat-card"><div class="profile-stat-sub">No multimodal evidence is available for this submission yet.</div></div>',
+            unsafe_allow_html=True,
+        )
+
+
+def _render_pipeline_detail_page(sub: dict, rubric_data: dict) -> None:
+    """Full-page company / idea profile opened from the Pipeline kanban."""
+    sid = sub["id"]
+    overall = float(sub.get("overall", 0) or 0)
+    stage_name = sub.get("stage", "")
+    stage_color = _stage_color(stage_name)
+    shortlist_cat = _shortlist_category_for(sid)
+    memo_cached = sid in st.session_state.investment_memos
+
+    st.markdown(f"""
+    <div class="forge-topbar">
+      <div class="forge-topbar-left">
+        <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Pipeline</span> <span class="forge-sep">/</span> <span>{_esc(sub['name'])}</span></div>
+        <div class="forge-page-tag">Submission Profile</div>
+      </div>
+      <div class="forge-topbar-status">
+        <div class="forge-status-dot"></div>
+        {_esc(sid)}
+      </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="page-content">', unsafe_allow_html=True)
+
+    top_left, top_mid, top_right = st.columns([1.1, 1.3, 1.2], gap="medium")
+    with top_left:
+        if st.button("← Back to Pipeline", key="pipe_detail_back", use_container_width=True):
+            _close_pipeline_detail()
+            st.session_state.nav_page = "Pipeline"
+            st.rerun()
+    with top_mid:
+        memo_label = "📄 Open Investment Memo" if memo_cached else "📄 Generate Investment Memo"
+        if st.button(
+            memo_label,
+            key=f"pipe_detail_memo_{sid}",
+            use_container_width=True,
+            disabled=not bool(sub.get("categories")),
+        ):
+            _close_criterion_detail_dialog()
+            st.session_state.memo_sub_id = sid
+            if sid not in st.session_state.investment_memos:
+                st.session_state.memo_needs_generate = True
+            st.rerun()
+    with top_right:
+        sl_label = f"⭐ Shortlisted · {shortlist_cat}" if shortlist_cat else "⭐ Add to Shortlist"
+        if st.button(sl_label, key=f"pipe_detail_shortlist_{sid}", use_container_width=True):
+            st.session_state.shortlist_pick_sub_id = sid
+            st.rerun()
+
+    cur_idx = STAGE_NAMES.index(stage_name) if stage_name in STAGE_NAMES else -1
+    at_last = cur_idx >= len(STAGE_NAMES) - 1
+    act_score, act_adv, act_del = st.columns(3, gap="small")
+    with act_score:
+        if st.button("Score", key=f"pipe_detail_sc_{sid}", use_container_width=True):
+            mode_label = st.session_state.get("scoring_mode", "Simulated")
+            with st.spinner(f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"):
+                if mode_label == "Simulated":
+                    time.sleep(0.8)
+                sc2, warn2 = route_scoring(sub, rubric_data)
+                idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sid)
+                st.session_state.submissions[idx].update({
+                    "overall": sc2["overall"],
+                    "innovation": sc2["innovation"],
+                    "feasibility": sc2["feasibility"],
+                    "categories": sc2["categories"],
+                    "auto_reject": sc2["auto_reject"],
+                    "high_risk": sc2["high_risk"],
+                    "scored_at": sc2["scored_at"],
+                    "status": "Scored",
+                })
+                st.session_state.investment_memos.pop(sid, None)
+                _clear_criterion_detail_cache(sid)
+                gate_note = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
+                fallback_note = f" · ⚠ {warn2}" if warn2 else ""
+                st.session_state.flash_msg = (
+                    "success",
+                    f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}{fallback_note}",
+                )
+                st.rerun()
+    with act_adv:
+        if st.button("Advance", key=f"pipe_detail_adv_{sid}", disabled=at_last, use_container_width=True):
+            new_stage = STAGE_NAMES[cur_idx + 1]
+            with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
+                time.sleep(0.5)
+                idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sid)
+                summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
+                hist = st.session_state.submissions[idx].get("stage_history", [])
+                hist.append({"stage": new_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")})
+                st.session_state.submissions[idx]["stage"] = new_stage
+                st.session_state.submissions[idx]["stage_summary"] = summary
+                st.session_state.submissions[idx]["stage_history"] = hist
+                st.session_state.flash_msg = (
+                    "info",
+                    f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated",
+                )
+                st.rerun()
+    with act_del:
+        if st.button("Delete", key=f"pipe_detail_del_{sid}", use_container_width=True):
+            _remove_from_shortlist(sid)
+            st.session_state.investment_memos.pop(sid, None)
+            _clear_criterion_detail_cache(sid)
+            _close_criterion_deep_dives_for_submission(sid)
+            _close_pipeline_detail()
+            st.session_state.submissions = [
+                s for s in st.session_state.submissions if s["id"] != sid
+            ]
+            st.session_state.flash_msg = ("info", f"Deleted '{sub['name']}'")
+            st.rerun()
+
+    st.markdown(
+        f'<div class="pipeline-detail-shell">'
+        f'<div style="display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap;">'
+        f'<div style="flex:1;min-width:320px;">'
+        f'<div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:0.08em;">Submission Profile</div>'
+        f'<div style="font-size:30px;font-weight:800;color:var(--text-1);margin-top:8px;line-height:1.15;">{_esc(sub["name"])}</div>'
+        f'<div class="pipeline-detail-meta">'
+        f'<span class="pipeline-detail-pill">{_esc(sid)}</span>'
+        f'<span class="pipeline-detail-pill">{_esc(sub.get("file_type", "—"))}</span>'
+        f'<span class="pipeline-detail-pill" style="color:{stage_color};border-color:{stage_color}55;">● {_esc(_stage_display_name(stage_name))}</span>'
+        f'<span class="pipeline-detail-pill">{_esc(sub.get("status", "New"))}</span>'
+        f'</div>'
+        f'<div style="margin-top:14px;font-size:13px;line-height:1.7;color:var(--text-2);max-width:860px;">'
+        f'{_esc((sub.get("notes") or "No submission notes provided.").strip()[:420])}'
+        f'</div>'
+        f'</div>'
+        f'<div style="min-width:260px;max-width:320px;width:100%;background:#0b1220;border:1px solid #1f2937;border-radius:18px;padding:10px 12px;">'
+        f'<div style="font-size:11px;font-weight:700;color:#8b949e;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px;">Overall ForgeOS Score</div>'
+        f'</div>'
+        f'</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+    gauge_col, meta_col1, meta_col2 = st.columns([1.25, 1, 1], gap="medium")
+    with gauge_col:
+        st.plotly_chart(
+            make_gauge(overall, "Overall Score", height=250),
+            use_container_width=True,
+            key=f"pipe_profile_overall_{sid}",
+        )
+    with meta_col1:
+        st.markdown(
+            f'<div class="profile-stat-card">'
+            f'<div class="profile-stat-label">Current Stage</div>'
+            f'<div class="profile-stat-value" style="color:{stage_color};">{_esc(_stage_display_name(stage_name))}</div>'
+            f'<div class="profile-stat-sub">This idea is currently positioned in the { _esc(_stage_display_name(stage_name)) } segment of the ForgeOS pipeline.</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    with meta_col2:
+        stage_rec = sub.get("intake_stage_recommendation") or {}
+        rec_stage = _stage_display_name(_normalize_stage_name(stage_rec.get("recommended_stage", "Intake")))
+        rec_conf = stage_rec.get("confidence", "—")
+        st.markdown(
+            f'<div class="profile-stat-card">'
+            f'<div class="profile-stat-label">Auto-Assigned Intake Stage</div>'
+            f'<div class="profile-stat-value">{_esc(rec_stage)}</div>'
+            f'<div class="profile-stat-sub">Confidence: {_esc(rec_conf)}% · Manual override: {"Yes" if sub.get("intake_stage_manual_override") else "No"}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+    st.markdown('<div class="section-hd" style="margin-top:10px;">Rubric Breakdown</div>', unsafe_allow_html=True)
+    if sub.get("categories"):
+        _render_score_breakdown_panel(sub, breakdown_page="PipelineDetail")
+    else:
+        st.markdown(
+            '<div class="empty-state" style="padding:36px 24px;">'
+            '<div class="empty-icon">📊</div>'
+            '<div class="empty-title">This submission has not been scored yet</div>'
+            '<div class="empty-sub">Run scoring from the Pipeline board to populate the full 8-criteria rubric breakdown and memo tools.</div>'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+    preview_col, timeline_col = st.columns([1.5, 1], gap="medium")
+    with preview_col:
+        st.markdown('<div class="section-hd" style="margin-top:18px;">Multimodal Evidence</div>', unsafe_allow_html=True)
+        _render_submission_evidence_panel(sub)
+    with timeline_col:
+        st.markdown('<div class="section-hd" style="margin-top:18px;">Stage Timeline</div>', unsafe_allow_html=True)
+        _render_pipeline_stage_timeline(sub)
+
+    st.markdown('</div>', unsafe_allow_html=True)
 
 
 def make_gauge(score, title="", height=150):
@@ -3282,6 +3794,8 @@ def _vision_describe_pdf(
 def extract_file_text(
     uploaded_files,
     status_slot=None,
+    progress_bar=None,
+    progress_label=None,
     use_llm_vision: bool = False,
     api_key: str = "",
     base_url: str = "",
@@ -3301,13 +3815,24 @@ def extract_file_text(
 
     parts: list = []
     summaries: list = []
+    total_files = len(uploaded_files)
 
-    for f in uploaded_files:
+    for idx, f in enumerate(uploaded_files, start=1):
         fname      = f.name
         flower     = fname.lower()
         ftype_mime = f.type or ""
         file_bytes = f.read()
         file_size_kb = round(len(file_bytes) / 1024, 1)
+
+        if progress_bar:
+            progress_bar.progress((idx - 1) / max(total_files, 1))
+        if progress_label:
+            progress_label.markdown(
+                f'<div style="font-size:12px;color:#8b949e;padding:2px 0;">'
+                f'Analyzing file {idx} of {total_files}: '
+                f'<strong style="color:#e6edf3;">{_esc(fname)}</strong></div>',
+                unsafe_allow_html=True,
+            )
 
         summary: dict = {
             "name": fname, "file_type": "other", "extraction_method": "none",
@@ -3662,23 +4187,486 @@ def extract_file_text(
 
         summaries.append(summary)
 
+        if progress_bar:
+            progress_bar.progress(idx / max(total_files, 1))
+
     return "\n\n".join(parts), summaries
+
+
+_STAGE_RECOMMENDER_SYSTEM = """You are ForgeOS, an expert intake analyst for physical-goods innovation submissions.
+Recommend the best starting stage in this 7-stage pipeline:
+- Intake
+- Concept (this is shown to users as "Concept Refinement")
+- Validation
+- Prototyping
+- Market Test
+- Scaling
+- Monitoring
+
+Return ONLY valid JSON with this exact schema:
+{
+  "recommended_stage": "<one stage from the list above>",
+  "confidence": <integer 50-95>,
+  "explanation": "<1-2 sentence rationale grounded in the supplied evidence>"
+}
+
+Rules:
+- Be conservative and prefer an earlier stage when evidence is mixed.
+- Base the decision only on the supplied notes, extracted content, and file summaries.
+- Use "Concept" for concept-stage recommendations, not "Concept Refinement".
+- Do not invent traction, prototypes, regulatory progress, or launch status."""
+
+
+def _uploaded_files_signature(uploaded_files, *, use_vis: bool = False) -> str:
+    """Stable signature for uploaded files to avoid reparsing unchanged drafts."""
+    if not uploaded_files:
+        return "no-files"
+    parts: list[str] = []
+    for file_obj in uploaded_files:
+        try:
+            file_bytes = file_obj.getvalue()
+        except Exception:
+            file_obj.seek(0)
+            file_bytes = file_obj.read()
+            file_obj.seek(0)
+        digest = hashlib.md5(file_bytes[:65536]).hexdigest()
+        size = getattr(file_obj, "size", len(file_bytes))
+        parts.append(f"{file_obj.name}:{size}:{file_obj.type}:{digest}")
+    payload = f"{use_vis}|{'|'.join(parts)}".encode("utf-8")
+    return hashlib.md5(payload).hexdigest()
+
+
+def _build_stage_recommendation_context(
+    idea_name: str,
+    notes_txt: str,
+    extracted_text: str,
+    file_summaries: list[dict] | None = None,
+) -> str:
+    """Compact context payload for the intake-stage recommender."""
+    file_summaries = file_summaries or []
+    summary_lines = []
+    for item in file_summaries[:6]:
+        summary_lines.append(
+            f"- {item.get('name', 'file')} | {item.get('file_type', 'other')} | "
+            f"method={item.get('extraction_method', 'none')} | chars={item.get('chars', 0)}"
+        )
+    lines = [
+        f"IDEA NAME: {idea_name.strip()}",
+        f"NOTES: {notes_txt.strip()[:1200]}",
+        "",
+        "FILES:",
+        "\n".join(summary_lines) if summary_lines else "- none",
+        "",
+        "EXTRACTED CONTENT:",
+        extracted_text[:4000] if extracted_text else "(none)",
+    ]
+    return "\n".join(lines)
+
+
+def _recommend_starting_stage_llm(
+    idea_name: str,
+    notes_txt: str,
+    extracted_text: str,
+    file_summaries: list[dict] | None = None,
+) -> dict:
+    """LLM-based stage recommendation with compact JSON output."""
+    raw = _llm_chat_text(
+        _STAGE_RECOMMENDER_SYSTEM,
+        _build_stage_recommendation_context(idea_name, notes_txt, extracted_text, file_summaries),
+        _effective_llm_key(),
+        _FORGE_LLM_BASE_URL,
+        _FORGE_LLM_MODEL,
+        temperature=0.2,
+        max_tokens=220,
+        timeout=22,
+    )
+    parsed = json.loads(raw)
+    stage_name = _normalize_stage_name(parsed.get("recommended_stage", "Intake"))
+    confidence = int(parsed.get("confidence", 65))
+    confidence = max(50, min(95, confidence))
+    explanation = str(parsed.get("explanation", "")).strip()
+    if not explanation:
+        explanation = "The submission appears most aligned with this stage based on the evidence provided."
+    return {
+        "recommended_stage": stage_name,
+        "confidence": confidence,
+        "explanation": explanation,
+        "source": "llm",
+    }
+
+
+def _recommend_starting_stage_local(
+    idea_name: str,
+    notes_txt: str,
+    extracted_text: str,
+    file_summaries: list[dict] | None = None,
+) -> dict:
+    """Fast heuristic fallback for intake-stage recommendation."""
+    text = f"{idea_name}\n{notes_txt}\n{extracted_text}".lower()
+    text = re.sub(r"\s+", " ", text).strip()
+    file_summaries = file_summaries or []
+    total_chars = len(extracted_text or "") + len(notes_txt or "")
+    if not text:
+        return {
+            "recommended_stage": "Intake",
+            "confidence": 58,
+            "explanation": (
+                "Very limited information is available, so Intake is the safest default until "
+                "supporting material or clearer development evidence is provided."
+            ),
+            "source": "heuristic",
+        }
+
+    stage_patterns: dict[str, list[tuple[str, int]]] = {
+        "Monitoring": [
+            ("post-launch", 6), ("post launch", 6), ("live customers", 6), ("retention", 5),
+            ("repeat purchase", 5), ("nps", 4), ("customer success", 4), ("installed base", 5),
+        ],
+        "Scaling": [
+            ("mass production", 6), ("scale-up", 5), ("scaling", 5), ("retail rollout", 6),
+            ("distribution", 4), ("purchase order", 5), ("manufacturing line", 5),
+            ("capacity expansion", 6), ("co-manufacturer", 4),
+        ],
+        "Market Test": [
+            ("pilot", 5), ("beta", 4), ("pre-order", 5), ("preorder", 5), ("waitlist", 4),
+            ("traction", 5), ("paid trial", 5), ("sell-through", 5), ("customer interviews", 3),
+            ("early customers", 5), ("test market", 5), ("loi", 4), ("letters of intent", 4),
+        ],
+        "Prototyping": [
+            ("prototype", 6), ("bom", 5), ("bill of materials", 6), ("cad", 5), ("3d printed", 5),
+            ("sample build", 5), ("tooling", 5), ("supplier quote", 5), ("alpha build", 5),
+            ("bench test", 4), ("manufacturing drawing", 5),
+        ],
+        "Validation": [
+            ("proof of concept", 5), ("poc", 4), ("feasibility", 4), ("market research", 4),
+            ("survey", 3), ("validated", 4), ("lab test", 4), ("regulatory review", 4),
+            ("customer discovery", 4), ("unit economics", 3),
+        ],
+        "Concept": [
+            ("concept", 3), ("idea", 2), ("vision", 2), ("hypothesis", 3),
+            ("problem statement", 3), ("opportunity", 2), ("white space", 3), ("roadmap", 2),
+        ],
+    }
+    scores = {stage: 0 for stage in STAGE_NAMES}
+    matches: dict[str, list[str]] = {stage: [] for stage in STAGE_NAMES}
+
+    for stage_name, patterns in stage_patterns.items():
+        for keyword, weight in patterns:
+            if keyword in text:
+                scores[stage_name] += weight
+                matches[stage_name].append(keyword)
+
+    if file_summaries:
+        has_pdf = any(item.get("file_type") == "pdf" for item in file_summaries)
+        has_media = any(item.get("file_type") in ("image", "video") for item in file_summaries)
+        if has_pdf:
+            scores["Concept"] += 2
+        if has_media:
+            scores["Prototyping"] += 2
+
+    if total_chars > 1200:
+        scores["Validation"] += 1
+        scores["Concept"] += 1
+    if total_chars > 2800:
+        scores["Prototyping"] += 1
+        scores["Market Test"] += 1
+
+    ordered = sorted(scores.items(), key=lambda item: item[1], reverse=True)
+    top_stage, top_score = ordered[0]
+    runner_up_score = ordered[1][1] if len(ordered) > 1 else 0
+
+    if top_score <= 0:
+        top_stage = "Concept" if total_chars >= 120 else "Intake"
+        top_score = 1 if top_stage == "Concept" else 0
+
+    if top_stage == "Monitoring" and top_score < 6:
+        top_stage = "Scaling"
+    if top_stage == "Scaling" and top_score < 5:
+        top_stage = "Market Test"
+    if top_stage == "Market Test" and not any(
+        kw in text for kw in ("pilot", "beta", "pre-order", "preorder", "traction", "early customers", "sell-through")
+    ):
+        top_stage = "Validation" if scores["Validation"] >= scores["Prototyping"] else "Prototyping"
+
+    evidence_terms = matches.get(top_stage, [])[:3]
+    confidence = 62 + min(24, top_score * 3 + max(0, top_score - runner_up_score) * 2)
+    confidence = max(55, min(92, confidence))
+
+    if top_stage == "Intake":
+        explanation = (
+            "The submission is still light on development evidence, so Intake is the most prudent "
+            "starting point before moving into formal concept work."
+        )
+    elif top_stage == "Concept":
+        explanation = (
+            "The material reads as an early-stage concept with a defined opportunity, but it does not "
+            "yet show enough validation or prototype-ready detail to start further down the pipeline."
+        )
+    elif top_stage == "Validation":
+        explanation = (
+            "The submission goes beyond a raw idea and shows early validation activity, but it still "
+            "needs stronger proof before prototype execution or market testing."
+        )
+    elif top_stage == "Prototyping":
+        explanation = (
+            "The materials reference prototype-level development signals such as BOMs, samples, CAD, "
+            "or supplier/tooling work, which indicates readiness for hands-on build iteration."
+        )
+    elif top_stage == "Market Test":
+        explanation = (
+            "The idea appears to have progressed into customer or channel testing, with evidence of pilots, "
+            "pre-orders, early customers, or traction signals that justify a market-test entry point."
+        )
+    elif top_stage == "Scaling":
+        explanation = (
+            "The submission suggests the product is beyond testing and is focused on production scale, "
+            "distribution growth, or commercialization readiness."
+        )
+    else:
+        explanation = (
+            "The business appears post-launch and operational, with language consistent with active "
+            "performance tracking rather than initial development work."
+        )
+
+    if evidence_terms:
+        explanation += f" Key signals detected: {', '.join(evidence_terms)}."
+
+    return {
+        "recommended_stage": top_stage,
+        "confidence": int(confidence),
+        "explanation": explanation,
+        "source": "heuristic",
+    }
+
+
+def recommend_starting_stage(
+    idea_name: str,
+    notes_txt: str,
+    extracted_text: str,
+    file_summaries: list[dict] | None = None,
+    *,
+    allow_llm: bool = True,
+) -> tuple[dict, str | None]:
+    """Recommend an intake stage using LLM when helpful, else local heuristics."""
+    if allow_llm and _llm_ready() and (extracted_text or notes_txt):
+        try:
+            return _recommend_starting_stage_llm(idea_name, notes_txt, extracted_text, file_summaries), None
+        except Exception as exc:
+            return _recommend_starting_stage_local(idea_name, notes_txt, extracted_text, file_summaries), (
+                "Stage recommendation used ForgeOS heuristic analysis because live AI stage triage was unavailable "
+                f"({ _classify_llm_error(exc) })."
+            )
+    return _recommend_starting_stage_local(idea_name, notes_txt, extracted_text, file_summaries), None
+
+
+def _stage_analysis_cache_key(
+    idea_name: str,
+    notes_txt: str,
+    uploaded,
+    use_vis: bool,
+    *,
+    cache_scope: str = "single",
+) -> str:
+    idea_name = (idea_name or "").strip()
+    notes_txt = (notes_txt or "").strip()
+    if uploaded:
+        file_sig = _uploaded_files_signature(uploaded, use_vis=use_vis)
+        return f"{cache_scope}|{idea_name}|{notes_txt}|{file_sig}"
+    return f"{cache_scope}|{idea_name}|{notes_txt}|notes-only"
+
+
+def _get_stage_analysis(
+    idea_name: str,
+    notes_txt: str,
+    uploaded,
+    use_vis: bool,
+    *,
+    cache_scope: str = "single",
+    show_spinner: bool = True,
+    require_explicit_run: bool = False,
+) -> dict | None:
+    """Analyze draft content and return a cached stage recommendation."""
+    idea_name = (idea_name or "").strip()
+    notes_txt = (notes_txt or "").strip()
+    has_files = bool(uploaded)
+    if not has_files and not idea_name and not notes_txt:
+        if cache_scope == "single":
+            st.session_state.single_stage_analysis = None
+        return None
+
+    cache_key = _stage_analysis_cache_key(
+        idea_name, notes_txt, uploaded, use_vis, cache_scope=cache_scope,
+    )
+    if require_explicit_run:
+        if cache_scope == "single":
+            requested_key = st.session_state.get("single_stage_analysis_request_sig")
+            if requested_key != cache_key:
+                st.session_state.single_stage_analysis = None
+                return None
+        else:
+            requested_keys = st.session_state.bulk_stage_analysis_cache.get("__requested__", set())
+            if cache_key not in requested_keys:
+                st.session_state.bulk_stage_analysis_cache.pop(cache_key, None)
+                return None
+    if cache_scope == "single":
+        cached = st.session_state.get("single_stage_analysis")
+        if cached and cached.get("cache_key") == cache_key:
+            return cached
+    else:
+        cached = st.session_state.bulk_stage_analysis_cache.get(cache_key)
+        if cached:
+            return cached
+
+    spinner_label = (
+        "Analyzing uploaded material and recommending a starting stage…"
+        if has_files
+        else "Analyzing idea details and recommending a starting stage…"
+    )
+    spinner_ctx = st.spinner(spinner_label) if show_spinner else nullcontext()
+    with spinner_ctx:
+        progress_bar = None
+        progress_label = None
+        if has_files and show_spinner:
+            progress_bar = st.progress(0.0)
+            progress_label = st.empty()
+        if has_files:
+            file_sig = _uploaded_files_signature(uploaded, use_vis=use_vis)
+            extracted_text, file_summaries = extract_file_text(
+                uploaded,
+                progress_bar=progress_bar,
+                progress_label=progress_label,
+                use_llm_vision=(use_vis and _llm_ready() and st.session_state.get("scoring_mode", "Simulated AI") == "Real LLM"),
+                api_key=_effective_llm_key(),
+                base_url=_FORGE_LLM_BASE_URL,
+                model=_FORGE_LLM_MODEL,
+            )
+            if progress_bar:
+                progress_bar.progress(1.0)
+            if progress_label:
+                progress_label.markdown(
+                    '<div style="font-size:12px;color:#8b949e;padding:2px 0;">'
+                    'Finalizing recommended stage…</div>',
+                    unsafe_allow_html=True,
+                )
+            recommendation, warning = recommend_starting_stage(
+                idea_name,
+                notes_txt,
+                extracted_text,
+                file_summaries,
+                allow_llm=True,
+            )
+            if progress_label:
+                progress_label.empty()
+            result = {
+                "cache_key": cache_key,
+                "file_signature": file_sig,
+                "extracted_text": extracted_text,
+                "file_summaries": file_summaries,
+                "recommendation": recommendation,
+                "warning": warning,
+                "file_count": len(uploaded or []),
+                "total_chars": sum(item.get("chars", 0) for item in file_summaries),
+            }
+        else:
+            recommendation, warning = recommend_starting_stage(
+                idea_name,
+                notes_txt,
+                "",
+                [],
+                allow_llm=False,
+            )
+            result = {
+                "cache_key": cache_key,
+                "file_signature": "notes-only",
+                "extracted_text": "",
+                "file_summaries": [],
+                "recommendation": recommendation,
+                "warning": warning,
+                "file_count": 0,
+                "total_chars": len(notes_txt),
+            }
+
+    if cache_scope == "single":
+        st.session_state.single_stage_analysis = result
+    else:
+        st.session_state.bulk_stage_analysis_cache[cache_key] = result
+    return result
+
+
+def _get_single_stage_analysis(
+    idea_name: str,
+    notes_txt: str,
+    uploaded,
+    use_vis: bool,
+) -> dict | None:
+    return _get_stage_analysis(
+        idea_name,
+        notes_txt,
+        uploaded,
+        use_vis,
+        cache_scope="single",
+        require_explicit_run=bool(uploaded),
+    )
+
+
+def _render_stage_recommendation_card(stage_analysis: dict) -> None:
+    rec = stage_analysis.get("recommendation", {})
+    rec_stage = _normalize_stage_name(rec.get("recommended_stage", "Intake"))
+    rec_display = _stage_display_name(rec_stage)
+    rec_conf = int(rec.get("confidence", 0))
+    rec_expl = rec.get("explanation", "")
+    rec_color = _stage_color(rec_stage)
+    rec_source = stage_analysis.get("warning") or (
+        "Recommendation based on extracted submission evidence."
+        if stage_analysis.get("file_count")
+        else "Recommendation based on the idea name and notes provided."
+    )
+    st.markdown(
+        f"""
+        <div style="margin-top:10px;padding:14px 16px;border-radius:14px;
+                    border:1px solid {rec_color}33;background:linear-gradient(180deg,#111826 0%,#0f1724 100%);
+                    box-shadow:0 10px 24px rgba(0,0,0,0.18);">
+          <div>
+            <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#8b949e;">
+              Auto-Assign Stage
+            </div>
+            <div style="margin-top:6px;font-size:20px;font-weight:800;color:{rec_color};">
+              Recommended Starting Stage: { _esc(rec_display) } ({rec_conf}% confidence)
+            </div>
+            <div style="margin-top:8px;font-size:13px;line-height:1.6;color:#c9d1d9;max-width:880px;">
+              { _esc(rec_expl) }
+            </div>
+          </div>
+          <div style="margin-top:10px;font-size:12px;color:#8b949e;">
+            { _esc(rec_source) }
+          </div>
+          <div style="margin-top:8px;font-size:12px;color:#8b949e;">
+            This stage will be assigned automatically when you submit.
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _append_submission_from_upload(
     idea_name: str,
     notes_txt: str,
-    init_stage: str,
     uploaded,
     use_vis: bool,
     *,
     status_slot=None,
+    precomputed_extracted: str | None = None,
+    precomputed_summaries: list[dict] | None = None,
+    stage_recommendation: dict | None = None,
+    manual_stage_override: bool = False,
+    fallback_stage: str = "Intake",
 ) -> tuple[str, int, int]:
     """Create and append one submission. Returns (sid, file_count, chars_extracted)."""
     ftypes = list({f.type.split("/")[-1].upper() for f in (uploaded or [])}) or ["—"]
-    extracted = ""
-    file_summaries: list = []
-    if uploaded:
+    extracted = precomputed_extracted if precomputed_extracted is not None else ""
+    file_summaries: list = list(precomputed_summaries or [])
+    if uploaded and precomputed_extracted is None and precomputed_summaries is None:
         _is_llm_mode = st.session_state.get("scoring_mode", "Simulated AI") == "Real LLM"
         extracted, file_summaries = extract_file_text(
             uploaded,
@@ -3688,6 +4676,17 @@ def _append_submission_from_upload(
             base_url=_FORGE_LLM_BASE_URL,
             model=_FORGE_LLM_MODEL,
         )
+    if stage_recommendation is None:
+        stage_recommendation, _ = recommend_starting_stage(
+            idea_name,
+            notes_txt,
+            extracted,
+            file_summaries,
+            allow_llm=True,
+        )
+    assigned_stage = _normalize_stage_name(fallback_stage)
+    if stage_recommendation and not manual_stage_override:
+        assigned_stage = _normalize_stage_name(stage_recommendation.get("recommended_stage", assigned_stage))
     sid = f"FOS-{st.session_state.next_id}"
     st.session_state.next_id += 1
     total_chars = sum(s.get("chars", 0) for s in file_summaries)
@@ -3696,7 +4695,7 @@ def _append_submission_from_upload(
         "name":           idea_name.strip(),
         "file_type":      ", ".join(ftypes),
         "status":         "New",
-        "stage":          init_stage,
+        "stage":          assigned_stage,
         "overall":        0.0,
         "innovation":     0.0,
         "feasibility":    0.0,
@@ -3705,13 +4704,15 @@ def _append_submission_from_upload(
         "high_risk":      [],
         "scored_at":      "",
         "stage_summary":  "",
-        "stage_history":  [{"stage": init_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")}],
+        "stage_history":  [{"stage": assigned_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")}],
         "submitted_at":   datetime.now().strftime("%Y-%m-%d"),
         "notes":          notes_txt,
         "extracted_text": extracted,
         "file_summaries": file_summaries,
         "extraction_note": _build_extraction_note(file_summaries),
         "extraction_preview": extracted[:PDF_EXTRACTION_PREVIEW_CHARS] if extracted else "",
+        "intake_stage_recommendation": stage_recommendation or {},
+        "intake_stage_manual_override": manual_stage_override,
     })
     return sid, len(uploaded or []), total_chars
 
@@ -3763,6 +4764,7 @@ def _reset_bulk_upload_form() -> None:
     old_ids = list(st.session_state.bulk_upload_row_ids)
     st.session_state.bulk_upload_row_ids = [0]
     st.session_state.bulk_upload_next_row_id = max(st.session_state.bulk_upload_next_row_id, 1)
+    st.session_state.bulk_stage_analysis_cache = {}
     for rid in old_ids:
         for prefix in ("bulk_name_", "bulk_notes_", "bulk_files_"):
             st.session_state.pop(f"{prefix}{rid}", None)
@@ -6132,6 +7134,21 @@ with st.sidebar:
         _close_criterion_detail_dialog()
     st.session_state._tracked_nav_page = page
     st.session_state.nav_page = page
+    # #region agent log
+    _debug_log(
+        "sidebar navigation resolved",
+        {
+            "radio_page": page,
+            "prev_nav": prev_nav,
+            "query_page": st.query_params.get("page"),
+            "query_pipeline": st.query_params.get("pipeline"),
+            "query_submission": st.query_params.get("submission"),
+        },
+        hypothesis_id="H1",
+        location="app.py:6520",
+    )
+    # #endregion
+    _sync_pipeline_detail_from_query()
 
     subs = st.session_state.submissions
     _purge_shortlist_orphans()
@@ -6390,18 +7407,14 @@ elif page == "Submissions":
     )
 
     with st.expander("➕  New Submission", expanded=not st.session_state.submissions):
-        set_col1, set_col2 = st.columns(2)
-        with set_col1:
-            init_stage = st.selectbox("Initial Stage", STAGE_NAMES, key="submit_init_stage")
-        with set_col2:
-            use_vis = False
-            if _llm_ready():
-                use_vis = st.checkbox(
-                    "🔍 Vision analysis for images",
-                    value=True,
-                    key="submit_use_vision",
-                    help="Uses LLM vision to describe image content. Requires Real LLM mode & API key.",
-                )
+        use_vis = False
+        if _llm_ready():
+            use_vis = st.checkbox(
+                "🔍 Vision analysis for images",
+                value=True,
+                key="submit_use_vision",
+                help="Uses LLM vision to describe image content. Requires Real LLM mode & API key.",
+            )
 
         tab_single, tab_bulk = st.tabs(["Single idea", "Bulk upload"])
 
@@ -6430,31 +7443,76 @@ elif page == "Submissions":
                     key="single_idea_notes",
                 )
 
+            stage_analysis = _get_single_stage_analysis(idea_name, notes_txt, uploaded, use_vis)
+            if uploaded and stage_analysis is None:
+                st.info("Files are ready. Press Analyze to allow ForgeOS to inspect them and recommend a starting stage.")
+                if st.button(
+                    "Analyze",
+                    key="analyze_single_stage_recommendation",
+                    use_container_width=False,
+                ):
+                    st.session_state.single_stage_analysis_request_sig = _stage_analysis_cache_key(
+                        idea_name,
+                        notes_txt,
+                        uploaded,
+                        use_vis,
+                        cache_scope="single",
+                    )
+                    st.rerun()
+            if stage_analysis:
+                _render_stage_recommendation_card(stage_analysis)
+                if st.button(
+                    "Re-analyze",
+                    key="refresh_single_stage_recommendation",
+                    use_container_width=False,
+                ):
+                    st.session_state.single_stage_analysis = None
+                    st.session_state.single_stage_analysis_request_sig = _stage_analysis_cache_key(
+                        idea_name,
+                        notes_txt,
+                        uploaded,
+                        use_vis,
+                        cache_scope="single",
+                    )
+                    st.rerun()
+
             if st.button("Submit Idea", key="submit_single_idea"):
                 _close_criterion_detail_dialog()
                 if not idea_name.strip():
                     st.error("Idea name is required.")
                 else:
-                    if uploaded:
-                        with st.status("Parsing uploaded files…", expanded=True) as parse_status:
-                            slot = st.empty()
-                            sid, file_count, total_chars = _append_submission_from_upload(
+                    if stage_analysis is None:
+                        if uploaded:
+                            st.session_state.single_stage_analysis_request_sig = _stage_analysis_cache_key(
                                 idea_name,
                                 notes_txt,
-                                init_stage,
                                 uploaded,
                                 use_vis,
-                                status_slot=slot,
+                                cache_scope="single",
                             )
-                            slot.empty()
-                            parse_status.update(
-                                label=f"✅ {file_count} file(s) parsed — {total_chars:,} chars extracted",
-                                state="complete",
-                            )
+                        stage_analysis = _get_single_stage_analysis(idea_name, notes_txt, uploaded, use_vis)
+
+                    stage_rec = stage_analysis.get("recommendation") if stage_analysis else None
+                    if uploaded and stage_analysis and stage_analysis.get("file_signature") != "notes-only":
+                        sid, file_count, total_chars = _append_submission_from_upload(
+                            idea_name,
+                            notes_txt,
+                            uploaded,
+                            use_vis,
+                            precomputed_extracted=stage_analysis.get("extracted_text", ""),
+                            precomputed_summaries=stage_analysis.get("file_summaries", []),
+                            stage_recommendation=stage_rec,
+                        )
                     else:
                         sid, file_count, _ = _append_submission_from_upload(
-                            idea_name, notes_txt, init_stage, uploaded, use_vis
+                            idea_name,
+                            notes_txt,
+                            uploaded,
+                            use_vis,
+                            stage_recommendation=stage_rec,
                         )
+                    st.session_state.single_stage_analysis = None
+                    st.session_state.single_stage_analysis_request_sig = None
                     file_note = f" ({file_count} file(s) parsed)" if file_count else ""
                     st.success(f"Submission {sid} added{file_note}.")
                     st.rerun()
@@ -6508,11 +7566,45 @@ elif page == "Submissions":
                             + ", ".join(f.name for f in row_files[:4])
                             + (f" + {len(row_files) - 4} more" if len(row_files) > 4 else "")
                         )
+                    row_stage_analysis = None
+                    row_cache_key = _stage_analysis_cache_key(
+                        row_name,
+                        row_notes,
+                        row_files,
+                        use_vis,
+                        cache_scope=f"bulk-{row_id}",
+                    )
+                    if (row_name or "").strip() or (row_notes or "").strip() or row_files:
+                        row_stage_analysis = _get_stage_analysis(
+                            row_name,
+                            row_notes,
+                            row_files,
+                            use_vis,
+                            cache_scope=f"bulk-{row_id}",
+                            show_spinner=False,
+                            require_explicit_run=bool(row_files),
+                        )
+                        if row_files and row_stage_analysis is None:
+                            if st.button(
+                                "Analyze",
+                                key=f"bulk_analyze_{row_id}",
+                                use_container_width=False,
+                            ):
+                                requested = set(
+                                    st.session_state.bulk_stage_analysis_cache.get("__requested__", set())
+                                )
+                                requested.add(row_cache_key)
+                                st.session_state.bulk_stage_analysis_cache["__requested__"] = requested
+                                st.rerun()
+                        if row_stage_analysis:
+                            _render_stage_recommendation_card(row_stage_analysis)
                     bulk_rows.append({
                         "row_id": row_id,
+                        "cache_key": row_cache_key,
                         "name": row_name,
                         "notes": row_notes,
                         "files": row_files,
+                        "stage_analysis": row_stage_analysis,
                     })
 
             bulk_btn_l, bulk_btn_r = st.columns([1, 1])
@@ -6554,14 +7646,44 @@ elif page == "Submissions":
                                 f'📥 **{i + 1}/{len(valid_rows)}** — {_esc(row["name"].strip())}</div>',
                                 unsafe_allow_html=True,
                             )
-                            sid, fc, chars = _append_submission_from_upload(
-                                row["name"],
-                                row["notes"],
-                                init_stage,
-                                row["files"],
-                                use_vis,
-                                status_slot=slot,
+                            row_analysis = row.get("stage_analysis")
+                            if row_analysis is None:
+                                if row["files"]:
+                                    requested = set(
+                                        st.session_state.bulk_stage_analysis_cache.get("__requested__", set())
+                                    )
+                                    requested.add(row["cache_key"])
+                                    st.session_state.bulk_stage_analysis_cache["__requested__"] = requested
+                                row_analysis = _get_stage_analysis(
+                                    row["name"],
+                                    row["notes"],
+                                    row["files"],
+                                    use_vis,
+                                    cache_scope=f"bulk-{row['row_id']}",
+                                    show_spinner=False,
+                                    require_explicit_run=bool(row["files"]),
+                                )
+                            stage_rec_row = (
+                                row_analysis.get("recommendation") if row_analysis else None
                             )
+                            if row["files"] and row_analysis and row_analysis.get("file_signature") != "notes-only":
+                                sid, fc, chars = _append_submission_from_upload(
+                                    row["name"],
+                                    row["notes"],
+                                    row["files"],
+                                    use_vis,
+                                    precomputed_extracted=row_analysis.get("extracted_text", ""),
+                                    precomputed_summaries=row_analysis.get("file_summaries", []),
+                                    stage_recommendation=stage_rec_row,
+                                )
+                            else:
+                                sid, fc, chars = _append_submission_from_upload(
+                                    row["name"],
+                                    row["notes"],
+                                    row["files"],
+                                    use_vis,
+                                    stage_recommendation=stage_rec_row,
+                                )
                             created.append(sid)
                             total_files += fc
                             total_chars += chars
@@ -7051,21 +8173,6 @@ elif page == "Shortlist":
 elif page == "Pipeline":
 
     _pipe_total = len(st.session_state.submissions)
-    st.markdown(f"""
-    <div class="forge-topbar">
-      <div class="forge-topbar-left">
-        <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Pipeline</span></div>
-        <div class="forge-page-tag">7-Stage Flow</div>
-      </div>
-      <div class="forge-topbar-status">
-        <div class="forge-status-dot"></div>
-        {_pipe_total} in pipeline
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown('<div class="page-content">', unsafe_allow_html=True)
-
     # ── Flash message ─────────────────────────────────────────────────────────
     if st.session_state.flash_msg:
         ftype, fmsg = st.session_state.flash_msg
@@ -7080,161 +8187,215 @@ elif page == "Pipeline":
             st.error(fmsg)
 
     subs = st.session_state.submissions
-    stage_map = {s["name"]: [] for s in STAGES}
-    for sub in subs:
-        if sub["stage"] in stage_map:
-            stage_map[sub["stage"]].append(sub)
+    detail_sub_id = st.session_state.get("pipeline_detail_sub_id")
+    detail_sub = next((s for s in subs if s["id"] == detail_sub_id), None) if detail_sub_id else None
+    # #region agent log
+    _debug_log(
+        "pipeline branch entered",
+        {
+            "page": page,
+            "detail_sub_id": detail_sub_id,
+            "detail_found": bool(detail_sub),
+            "query_page": st.query_params.get("page"),
+            "query_pipeline": st.query_params.get("pipeline"),
+            "query_submission": st.query_params.get("submission"),
+        },
+        hypothesis_id="H3",
+        run_id="post-fix",
+        location="app.py:7904",
+    )
+    # #endregion
 
-    # ── Kanban board ──────────────────────────────────────────────────────────
-    st.markdown('<div class="section-hd">Board View</div>', unsafe_allow_html=True)
+    _maybe_open_shortlist_dialog()
+    _maybe_open_memo_dialog()
+    _maybe_open_criterion_deep_dive_dialog()
 
-    _KBOARD_ICONS = {
-        "Intake": "📥", "Concept": "💡", "Validation": "🔬",
-        "Prototyping": "🛠", "Market Test": "📈", "Scaling": "⚡", "Monitoring": "📡",
-    }
-    cols = st.columns(len(STAGES))
-    for stage, col in zip(STAGES, cols):
-        items = stage_map.get(stage["name"], [])
-        with col:
-            _kb_icon = _KBOARD_ICONS.get(stage["name"], "●")
-            _stage_name_e = _html.escape(stage["name"])
-            st.markdown(
-                f'<div class="kanban-col-header">'
-                f'<span class="kanban-col-name" style="color:{stage["color"]}">{_kb_icon} {_stage_name_e}</span>'
-                f'<span class="kanban-count">{len(items)}</span>'
-                f'</div>',
-                unsafe_allow_html=True,
-            )
+    if detail_sub_id and detail_sub:
+        _render_pipeline_detail_page(detail_sub, rubric)
+    else:
+        if detail_sub_id and not detail_sub:
+            st.session_state.pipeline_detail_sub_id = None
 
-            if items:
-                for sub in items:
-                    score_badge_html = ""
-                    if sub["overall"] > 0:
-                        bc = score_badge_class(sub["overall"])
-                        score_badge_html = f'<span class="badge-score {bc}" style="font-size:10px;">{sub["overall"]}</span>'
-                    pc = pill_class(sub["status"])
-                    blabel, bcolor, bbg = forge_badge(sub)
-                    fb_html = ""
-                    if blabel:
-                        fb_html = (
-                            f'<span style="font-size:9px;font-weight:700;color:{bcolor};'
-                            f'background:{bbg};border:1px solid {bcolor}44;'
-                            f'border-radius:3px;padding:1px 5px;margin-left:4px;">'
-                            f'{blabel}</span>'
+        st.markdown(f"""
+        <div class="forge-topbar">
+          <div class="forge-topbar-left">
+            <div class="forge-breadcrumb">ForgeOS <span class="forge-sep">/</span> <span>Pipeline</span></div>
+            <div class="forge-page-tag">7-Stage Flow</div>
+          </div>
+          <div class="forge-topbar-status">
+            <div class="forge-status-dot"></div>
+            {_pipe_total} in pipeline
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown('<div class="page-content">', unsafe_allow_html=True)
+
+        stage_map = {s["name"]: [] for s in STAGES}
+        for sub in subs:
+            if sub["stage"] in stage_map:
+                stage_map[sub["stage"]].append(sub)
+
+        # ── Kanban board ──────────────────────────────────────────────────────────
+        st.markdown('<div class="section-hd">Board View</div>', unsafe_allow_html=True)
+
+        _KBOARD_ICONS = {
+            "Intake": "📥", "Concept": "💡", "Validation": "🔬",
+            "Prototyping": "🛠", "Market Test": "📈", "Scaling": "⚡", "Monitoring": "📡",
+        }
+        cols = st.columns(len(STAGES))
+        for stage, col in zip(STAGES, cols):
+            items = stage_map.get(stage["name"], [])
+            with col:
+                _kb_icon = _KBOARD_ICONS.get(stage["name"], "●")
+                _stage_name_e = _html.escape(_stage_display_name(stage["name"]))
+                st.markdown(
+                    f'<div class="kanban-col-header">'
+                    f'<span class="kanban-col-name" style="color:{stage["color"]}">{_kb_icon} {_stage_name_e}</span>'
+                    f'<span class="kanban-count">{len(items)}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+                if items:
+                    for sub in items:
+                        score_badge_html = ""
+                        if sub["overall"] > 0:
+                            bc = score_badge_class(sub["overall"])
+                            score_badge_html = f'<span class="badge-score {bc}" style="font-size:10px;">{sub["overall"]}</span>'
+                        pc = pill_class(sub["status"])
+                        blabel, bcolor, bbg = forge_badge(sub)
+                        fb_html = ""
+                        if blabel:
+                            fb_html = (
+                                f'<span style="font-size:9px;font-weight:700;color:{bcolor};'
+                                f'background:{bbg};border:1px solid {bcolor}44;'
+                                f'border-radius:3px;padding:1px 5px;margin-left:4px;">'
+                                f'{blabel}</span>'
+                            )
+
+                        _card_name = _html.escape(sub["name"])
+                        _card_id = _html.escape(sub["id"])
+                        _card_status = _html.escape(sub["status"])
+                        _card_stage = _html.escape(_stage_display_name(sub["stage"]))
+                        st.markdown(
+                            f'<div class="kanban-card" style="border-left-color:{stage["color"]};">'
+                            f'<div class="kanban-card-title">{_card_name}</div>'
+                            f'<div class="kanban-card-meta">'
+                            f'<span class="forge-id" style="font-size:10px;">{_card_id}</span>'
+                            f'{score_badge_html}{fb_html}'
+                            f'</div>'
+                            f'<div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;gap:8px;">'
+                            f'<span class="pill {pc}" style="font-size:10px;">{_card_status}</span>'
+                            f'<span style="font-size:10px;color:#8b949e;">{_card_stage}</span>'
+                            f'</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
                         )
-
-                    _card_name   = _html.escape(sub['name'])
-                    _card_id     = _html.escape(sub['id'])
-                    _card_status = _html.escape(sub['status'])
-                    _card_html = (
-                        f'<div class="kanban-card">'
-                        f'<div class="kanban-card-title">{_card_name}</div>'
-                        f'<div class="kanban-card-meta">'
-                        f'<span class="forge-id" style="font-size:10px;">{_card_id}</span>'
-                        f'{score_badge_html}{fb_html}'
-                        f'</div>'
-                        f'<div style="margin-top:6px;">'
-                        f'<span class="pill {pc}" style="font-size:10px;">{_card_status}</span>'
-                        f'</div>'
-                        f'</div>'
-                    )
-                    st.markdown(_card_html, unsafe_allow_html=True)
-
-                    # ── Inline action buttons ───────────────────────────────
-                    cur_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
-                    at_last = cur_idx >= len(STAGE_NAMES) - 1
-                    btn_score, btn_adv = st.columns(2)
-                    with btn_score:
-                        if st.button("Score", key=f"pipe_sc_{sub['id']}", use_container_width=True):
-                            mode_label = st.session_state.get("scoring_mode", "Simulated")
-                            with st.spinner(f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"):
-                                if mode_label == "Simulated":
-                                    time.sleep(0.8)
-                                sc2, warn2 = route_scoring(sub, rubric)
-                                idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                                st.session_state.submissions[idx].update({
-                                    "overall":     sc2["overall"],
-                                    "innovation":  sc2["innovation"],
-                                    "feasibility": sc2["feasibility"],
-                                    "categories":  sc2["categories"],
-                                    "auto_reject": sc2["auto_reject"],
-                                    "high_risk":   sc2["high_risk"],
-                                    "scored_at":   sc2["scored_at"],
-                                    "status":      "Scored",
-                                })
-                                st.session_state.investment_memos.pop(sub["id"], None)
-                                _clear_criterion_detail_cache(sub["id"])
-                                gate_note  = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
-                                fallback_note = f" · ⚠ {warn2}" if warn2 else ""
-                                st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}{fallback_note}")
-                                st.rerun()
-                    with btn_adv:
-                        if st.button("Advance", key=f"pipe_adv_{sub['id']}", disabled=at_last, use_container_width=True):
-                            new_stage = STAGE_NAMES[cur_idx + 1]
-                            with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
-                                time.sleep(0.5)
-                                idx     = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
-                                summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
-                                hist    = st.session_state.submissions[idx].get("stage_history", [])
-                                hist.append({"stage": new_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")})
-                                st.session_state.submissions[idx]["stage"]         = new_stage
-                                st.session_state.submissions[idx]["stage_summary"] = summary
-                                st.session_state.submissions[idx]["stage_history"] = hist
-                                st.session_state.flash_msg = ("info", f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated")
+                        if st.button(
+                            "Open profile",
+                            key=f"pipe_open_{sub['id']}",
+                            use_container_width=True,
+                            help=f"Open profile for {sub['name']}",
+                        ):
+                            _open_pipeline_detail(sub["id"])
                             st.rerun()
-            else:
-                st.markdown('<div class="kanban-empty">No ideas</div>', unsafe_allow_html=True)
 
-    # ── Stage distribution bar chart ──────────────────────────────────────────
-    if subs:
-        st.markdown('<div class="section-hd" style="margin-top:28px;">Stage Distribution</div>', unsafe_allow_html=True)
-        names  = [s["name"]  for s in STAGES]
-        counts = [len(stage_map.get(s["name"], [])) for s in STAGES]
-        colors = [s["color"] for s in STAGES]
-        fig_bar = go.Figure(go.Bar(
-            x=names, y=counts, marker_color=colors,
-            text=counts, textposition="auto",
-            textfont=dict(color="#e6edf3", size=11),
-        ))
-        fig_bar.update_layout(
-            paper_bgcolor="#0f1e30", plot_bgcolor="#0f1e30",
-            font={"color": "#4e6680", "family": "Inter", "size": 11},
-            xaxis=dict(gridcolor="#1a2f49", color="#4e6680", showgrid=False),
-            yaxis=dict(gridcolor="#1a2f49", color="#4e6680", title="Submissions", showgrid=True),
-            height=240, margin=dict(l=0, r=0, t=8, b=0),
-            showlegend=False, bargap=0.25,
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+                        # ── Inline action buttons ───────────────────────────────
+                        cur_idx = STAGE_NAMES.index(sub["stage"]) if sub["stage"] in STAGE_NAMES else -1
+                        at_last = cur_idx >= len(STAGE_NAMES) - 1
+                        btn_score, btn_adv = st.columns(2)
+                        with btn_score:
+                            if st.button("Score", key=f"pipe_sc_{sub['id']}", use_container_width=True):
+                                mode_label = st.session_state.get("scoring_mode", "Simulated")
+                                with st.spinner(f"Scoring using ForgeOS Extensive Rubric v2 ({mode_label})…"):
+                                    if mode_label == "Simulated":
+                                        time.sleep(0.8)
+                                    sc2, warn2 = route_scoring(sub, rubric)
+                                    idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
+                                    st.session_state.submissions[idx].update({
+                                        "overall":     sc2["overall"],
+                                        "innovation":  sc2["innovation"],
+                                        "feasibility": sc2["feasibility"],
+                                        "categories":  sc2["categories"],
+                                        "auto_reject": sc2["auto_reject"],
+                                        "high_risk":   sc2["high_risk"],
+                                        "scored_at":   sc2["scored_at"],
+                                        "status":      "Scored",
+                                    })
+                                    st.session_state.investment_memos.pop(sub["id"], None)
+                                    _clear_criterion_detail_cache(sub["id"])
+                                    gate_note = " · Auto-Reject gate triggered" if sc2["auto_reject"] else (" · High-Risk flag raised" if sc2["high_risk"] else "")
+                                    fallback_note = f" · ⚠ {warn2}" if warn2 else ""
+                                    st.session_state.flash_msg = ("success", f"Scored '{sub['name']}' — Overall: {sc2['overall']}/100{gate_note}{fallback_note}")
+                                    st.rerun()
+                        with btn_adv:
+                            if st.button("Advance", key=f"pipe_adv_{sub['id']}", disabled=at_last, use_container_width=True):
+                                new_stage = STAGE_NAMES[cur_idx + 1]
+                                with st.spinner(f"Advancing '{sub['name']}' to {new_stage}…"):
+                                    time.sleep(0.5)
+                                    idx = next(i for i, s in enumerate(st.session_state.submissions) if s["id"] == sub["id"])
+                                    summary = generate_stage_summary(st.session_state.submissions[idx], new_stage)
+                                    hist = st.session_state.submissions[idx].get("stage_history", [])
+                                    hist.append({"stage": new_stage, "moved_at": datetime.now().strftime("%Y-%m-%d")})
+                                    st.session_state.submissions[idx]["stage"] = new_stage
+                                    st.session_state.submissions[idx]["stage_summary"] = summary
+                                    st.session_state.submissions[idx]["stage_history"] = hist
+                                    st.session_state.flash_msg = ("info", f"'{sub['name']}' advanced to {new_stage} — AI stage brief generated")
+                                st.rerun()
+                else:
+                    st.markdown('<div class="kanban-empty">No ideas</div>', unsafe_allow_html=True)
 
-        # ── Conversion funnel ──────────────────────────────────────────────
-        st.markdown('<div class="section-hd">Conversion Funnel</div>', unsafe_allow_html=True)
-        total_subs = max(len(subs), 1)
-        for stage in STAGES:
-            cnt = len(stage_map.get(stage["name"], []))
-            pct = cnt / total_subs
-            bar_w = max(int(pct * 100), 2)
-            st.markdown(f"""
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-              <span style="width:108px;font-size:11px;color:var(--text-3);text-align:right;flex-shrink:0;font-weight:500;">{stage['name']}</span>
-              <div style="flex:1;background:var(--surface);border-radius:99px;height:16px;overflow:hidden;border:1px solid var(--border);">
-                <div style="width:{bar_w}%;background:{stage['color']};height:100%;border-radius:99px;
-                            display:flex;align-items:center;padding-left:8px;min-width:22px;
-                            box-shadow:0 0 8px {stage['color']}55;transition:width 0.4s ease;">
-                  <span style="font-size:9px;color:rgba(0,0,0,0.75);font-weight:800;">{cnt if cnt else ''}</span>
-                </div>
-              </div>
-              <span style="width:36px;font-size:11px;color:var(--text-3);font-weight:600;font-variant-numeric:tabular-nums;">{int(pct*100)}%</span>
+        # ── Stage distribution bar chart ──────────────────────────────────────────
+        if subs:
+            st.markdown('<div class="section-hd" style="margin-top:28px;">Stage Distribution</div>', unsafe_allow_html=True)
+            names = [_stage_display_name(s["name"]) for s in STAGES]
+            counts = [len(stage_map.get(s["name"], [])) for s in STAGES]
+            colors = [s["color"] for s in STAGES]
+            fig_bar = go.Figure(go.Bar(
+                x=names, y=counts, marker_color=colors,
+                text=counts, textposition="auto",
+                textfont=dict(color="#e6edf3", size=11),
+            ))
+            fig_bar.update_layout(
+                paper_bgcolor="#0f1e30", plot_bgcolor="#0f1e30",
+                font={"color": "#4e6680", "family": "Inter", "size": 11},
+                xaxis=dict(gridcolor="#1a2f49", color="#4e6680", showgrid=False),
+                yaxis=dict(gridcolor="#1a2f49", color="#4e6680", title="Submissions", showgrid=True),
+                height=240, margin=dict(l=0, r=0, t=8, b=0),
+                showlegend=False, bargap=0.25,
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
+
+            # ── Conversion funnel ──────────────────────────────────────────────
+            st.markdown('<div class="section-hd">Conversion Funnel</div>', unsafe_allow_html=True)
+            total_subs = max(len(subs), 1)
+            for stage in STAGES:
+                cnt = len(stage_map.get(stage["name"], []))
+                pct = cnt / total_subs
+                bar_w = max(int(pct * 100), 2)
+                st.markdown(f"""
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                  <span style="width:138px;font-size:11px;color:var(--text-3);text-align:right;flex-shrink:0;font-weight:500;">{_stage_display_name(stage['name'])}</span>
+                  <div style="flex:1;background:var(--surface);border-radius:99px;height:16px;overflow:hidden;border:1px solid var(--border);">
+                    <div style="width:{bar_w}%;background:{stage['color']};height:100%;border-radius:99px;
+                                display:flex;align-items:center;padding-left:8px;min-width:22px;
+                                box-shadow:0 0 8px {stage['color']}55;transition:width 0.4s ease;">
+                      <span style="font-size:9px;color:rgba(0,0,0,0.75);font-weight:800;">{cnt if cnt else ''}</span>
+                    </div>
+                  </div>
+                  <span style="width:36px;font-size:11px;color:var(--text-3);font-weight:600;font-variant-numeric:tabular-nums;">{int(pct*100)}%</span>
+                </div>""", unsafe_allow_html=True)
+
+        else:
+            st.markdown("""
+            <div class="empty-state">
+                <div class="empty-icon">🔀</div>
+                <div class="empty-title">Pipeline is empty</div>
+                <div class="empty-sub">Add submissions to see them flow through the pipeline.</div>
             </div>""", unsafe_allow_html=True)
 
-    else:
-        st.markdown("""
-        <div class="empty-state">
-            <div class="empty-icon">🔀</div>
-            <div class="empty-title">Pipeline is empty</div>
-            <div class="empty-sub">Add submissions to see them flow through the pipeline.</div>
-        </div>""", unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -7430,7 +8591,7 @@ elif page == "Rubric Settings":
                     </div>""", unsafe_allow_html=True)
 
         # ── Tabs ──────────────────────────────────────────────────────────────
-        tab_crit, tab_gate, tab_chart, tab_json = st.tabs(["Criteria", "Gating Rules", "Weight Chart", "Raw JSON"])
+        tab_crit, tab_gate, tab_chart = st.tabs(["Criteria", "Gating Rules", "Weight Chart"])
 
         with tab_crit:
             for i, crit in enumerate(criteria_list):
@@ -7501,9 +8662,5 @@ elif page == "Rubric Settings":
                 height=300, margin=dict(l=0, r=0, t=8, b=80),
             )
             st.plotly_chart(fig_w, use_container_width=True)
-
-        with tab_json:
-            st.json(rubric, expanded=False)
-            st.info("Edit rubric.json and restart the app to apply changes.", icon="ℹ️")
 
     st.markdown('</div>', unsafe_allow_html=True)
